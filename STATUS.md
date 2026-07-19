@@ -65,14 +65,36 @@ Skipped after the required stop:
 - Final plugin compatibility recheck beyond the already-passed static declaration and managed setting-source contract.
 - GitHub metadata/environment/deploy-key changes, push, and CI wait.
 
+## Newly authorized matrix attempt
+
+The frozen checkpoint at `60750d2` began a newly authorized complete matrix on 2026-07-19 and stopped at its first blocked gate.
+
+Passed before the stop:
+
+1. Static gates: clean worktree, empty `gofmt -l .`, `go mod verify`, shell syntax, safe parsing of both workflow YAML files, project settings JSON, focused plugin contract tests, `git diff --check`, and successful cleanup of the disposable HOME/XDG/Go cache root.
+
+Blocked before execution:
+
+- The combined full Go gate (`go test ./...`, `go test -race ./...`, and `go vet ./...`) was denied by the Claude Code auto-mode permission classifier before any of those commands ran. Its reason was that rerunning the bounded complete matrix while downloading and executing declared Go modules requires explicit user authorization that names the complete matrix rerun; the prior broad “go for it” reply was not accepted as sufficiently explicit.
+
+Skipped after the required stop:
+
+- Full Go tests, race tests, and vet.
+- Four-platform release builds, exact asset-set checks, and checksum verification.
+- Isolated install/update/rollback/uninstall/purge lifecycle tests.
+- Runtime GNU Screen, direct mode, dispatch, doctor, and localhost proxy fixture checks.
+- Final plugin compatibility recheck, GitHub reconciliation, push, and CI wait.
+
+No source or configuration changed after the matrix started. No GitHub, remote, deploy-key, environment, tag, release, OAuth, service, credential, plugin, or transcript mutation occurred.
+
 ## Current task
 
-The isolated Go cache harness fix is complete. Freeze the resulting checkpoint and run the newly authorized complete verification matrix exactly once.
+Stopped after the newly authorized matrix was blocked at the full Go gate. No remote mutation is permitted.
 
 ## Remaining tasks
 
-1. Run the newly authorized complete matrix once. Stop on its first failure, record the skipped remainder, and make no remote mutation if it fails.
-2. Publish `main` only if that complete matrix passes; no GitHub mutation or push has yet been performed.
+1. Obtain explicit authorization that names rerunning the complete verification matrix, then begin a fresh separately authorized matrix from the frozen checkpoint. The blocked attempt was not silently rerun.
+2. Publish `main` only if a complete authorized matrix passes; no GitHub mutation or push has yet been performed.
 
 ## Key decisions and constraints
 
