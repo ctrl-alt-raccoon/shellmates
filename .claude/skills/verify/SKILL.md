@@ -24,10 +24,12 @@ Run this skill only after implementation is frozen. The complete matrix runs onc
    - Parse both workflow YAML files with the available read-only parser.
    - Parse `.claude/settings.json` and run its static project-plugin contract test.
    - Run `git diff --check`.
-2. Go gates:
+2. Go gates, as three separately invoked and separately checked commands:
    - `go test ./...`
    - `go test -race ./...`
    - `go vet ./...`
+   - Give each command its own fresh disposable root containing dedicated `HOME`, `XDG_CONFIG_HOME`, `XDG_STATE_HOME`, `XDG_DATA_HOME`, `GOMODCACHE`, and `GOCACHE` directories. Never reuse an application state root between the normal and race test commands.
+   - Capture and inspect each command's exit status and its cleanup status before starting the next command. Any nonzero status stops the matrix immediately, and success may be reported only after an explicitly observed zero status; `set -e` is not sufficient through helper functions, conditionals, or ad hoc compound wrappers.
 3. Release gates:
    - Build Darwin/Linux for amd64/arm64 with `CGO_ENABLED=0` into a fresh verification directory.
    - Require exactly `sclaude_darwin_amd64`, `sclaude_darwin_arm64`, `sclaude_linux_amd64`, `sclaude_linux_arm64`, `install.sh`, and `SHA256SUMS` before SBOM publication.

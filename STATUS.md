@@ -1,6 +1,6 @@
 # Status checkpoint
 
-Updated: 2026-07-19
+Updated: 2026-07-20
 
 ## Completed tasks
 
@@ -110,15 +110,37 @@ Skipped after the required stop:
 
 Only `STATUS.md` changed after the matrix began. No GitHub, remote, deploy-key, environment, tag, release, OAuth, service, credential, plugin, or transcript mutation occurred.
 
+## Focused repair of the Go-gate failures
+
+The separately authorized repair task diagnosed and fixed both `internal/app` failures from the `60750d2` matrix without changing any production code.
+
+Root causes:
+
+- `TestRunSessionStartsWhileCreatorHoldsStateRootAdmission` was a false deadlock detector, not a product regression. `_run-session` loads runtime with `config.Load`, `runSession` never acquires state-root admission, and session-store serialization uses a separate lock-file inode from the admission directory flock, so no lock contention exists. The test instead required the entire runner lifecycle—launch consumption, subprocess start and exit, `MarkStarted`/`Finish` atomic writes and fsyncs—to finish within one second, which a cold-cache concurrent full-suite run can exceed. The relevant source was identical between the passing `d0b6673` matrix and the failing `60750d2` matrix.
+- `TestRunInstallReleaseFromPlatformAsset` set a fresh `HOME` and `XDG_DATA_HOME` but inherited the outer `XDG_STATE_HOME`, which the matrix shared between the normal and race Go commands. `setup.DefaultInstallLayout` derives the install state directory from `XDG_STATE_HOME`, so the normal run's ledger contaminated the race run and the layout guard correctly rejected the mismatch.
+
+Repair (tests and process only; `internal/app/dispatch.go`, `internal/session`, `internal/stateroot`, and `internal/setup` untouched):
+
+- The admission test now uses a backend fixture that writes a started marker and blocks on a test-controlled release file passed through the launch request. With the creator-held admission flock still held, the test waits under a generous bounded deadline for the marker plus a durable `StateRunning` record with runner/backend PIDs, failing early if the runner exits first. Only after proving that milestone does it release admission, open the gate, and require exit 0, stopped state, and launch-request consumption. Idempotent cleanup opens the gate, drains the runner, and releases admission exactly once so failure paths cannot leak the subprocess.
+- The install test now sets fresh `XDG_CONFIG_HOME`, `XDG_STATE_HOME`, and `XDG_DATA_HOME` beneath its temporary `HOME`.
+- The `verify` skill now requires each Go gate command to run in its own disposable root with dedicated `HOME`, all three XDG roots, `GOMODCACHE`, and `GOCACHE`, forbids sharing application state between normal and race commands, and requires explicitly inspecting every command and cleanup status before the next command, noting that `set -e` through helper functions is insufficient. No repository wrapper script was added; CI already isolates gates as separate steps.
+
+Focused verification (authorized focused checks only; no complete matrix was run):
+
+- `gofmt -l internal/app/dispatch_test.go` empty; `git diff --check` clean.
+- `go test ./internal/app -run '^(TestRunSessionStartsWhileCreatorHoldsStateRootAdmission|TestRunInstallReleaseFromPlatformAsset)$' -count=20` passed (`ok`, 6.381s) under a fresh disposable root with dedicated `HOME`, three XDG roots, `GOMODCACHE`, and `GOCACHE`; test status 0, cleanup status 0, root confirmed absent.
+- `go test -race ./internal/app -run '^(TestRunSessionStartsWhileCreatorHoldsStateRootAdmission|TestRunInstallReleaseFromPlatformAsset)$' -count=5` passed (`ok`, 2.923s) under a second independent disposable root with the same isolation; test status 0, cleanup status 0, root confirmed absent.
+- Scoped diff review, cap three rounds: round one found the diff clean apart from one low-severity failure-path diagnostic ordering observation, recorded in the backlog below. The loop ended after round one per the low-only exit rule.
+- Full `go test ./...`, race suite, vet, release, install-lifecycle, runtime, plugin, and GitHub stages were intentionally not run; they belong to the separately authorized complete matrix.
+
 ## Current task
 
-Stopped after the explicitly authorized complete matrix failed in the full Go gate. No remote mutation is permitted.
+Repair complete and committed. Awaiting separate explicit authorization for the next complete matrix. No remote mutation is permitted.
 
 ## Remaining tasks
 
-1. In a separately authorized repair task, diagnose and fix the two `internal/app` test failures and make future matrix wrappers check each command status explicitly.
-2. Run another complete matrix only with separate explicit authorization after those fixes are committed.
-3. Publish `main` only if a complete authorized matrix passes; no GitHub mutation or push has yet been performed.
+1. Run another complete matrix only with separate explicit authorization from the new frozen checkpoint.
+2. Publish `main` only if a complete authorized matrix passes; no GitHub mutation or push has yet been performed.
 
 ## Key decisions and constraints
 
@@ -137,3 +159,5 @@ Stopped after the explicitly authorized complete matrix failed in the full Go ga
 
 - Add local `actionlint` coverage in a future task if a trusted installation path is selected; do not block this task on installing it.
 - Consider automating GitHub attestation verification in the installer in a future release, with a separately reviewed trust model.
+- Low-severity review survivor: in the admission test's failure-only cleanup path, release admission and open the gate before draining the runner so a hypothetical future lock regression diagnoses quickly instead of burning the 30-second drain; passing runs are unaffected.
+- Document in README/SECURITY that resuming an existing Claude Code conversation under a different backend (for example continuing an Anthropic-backed session via a proxy-routed launcher) re-sends the prior transcript to the new provider; cross-backend resume should be a deliberate choice.

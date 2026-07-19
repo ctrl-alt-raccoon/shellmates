@@ -340,8 +340,16 @@ func TestRunSessionStartsWhileCreatorHoldsStateRootAdmission(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	signalDir := t.TempDir()
+	startedPath := filepath.Join(signalDir, "started")
+	releasePath := filepath.Join(signalDir, "release")
 	backendPath := filepath.Join(home, "backend")
-	if err := os.WriteFile(backendPath, []byte("#!/bin/sh\nexit 0\n"), 0o700); err != nil {
+	backendScript := "#!/bin/sh\n" +
+		"[ \"$#\" -eq 2 ] || exit 64\n" +
+		": > \"$1\"\n" +
+		"while [ ! -e \"$2\" ]; do sleep 0.05; done\n" +
+		"exit 0\n"
+	if err := os.WriteFile(backendPath, []byte(backendScript), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	runtimeConfig := config.Runtime{
@@ -368,6 +376,7 @@ func TestRunSessionStartsWhileCreatorHoldsStateRootAdmission(t *testing.T) {
 	if err := store.SaveLaunch(session.LaunchRequest{
 		SchemaVersion: 1,
 		SessionID:     record.ID,
+		Args:          []string{startedPath, releasePath},
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -382,41 +391,76 @@ func TestRunSessionStartsWhileCreatorHoldsStateRootAdmission(t *testing.T) {
 		t.Fatal(err)
 	}
 	released := false
-	defer func() {
-		if !released {
-			_ = admission.Release()
+	releaseAdmission := func() {
+		if released {
+			return
 		}
-	}()
+		released = true
+		if err := admission.Release(); err != nil {
+			t.Errorf("release admission lock: %v", err)
+		}
+	}
+	openReleaseGate := func() {
+		if err := os.WriteFile(releasePath, nil, 0o600); err != nil {
+			t.Errorf("open backend release gate: %v", err)
+		}
+	}
 
-	done := make(chan int, 1)
+	var runnerOut, runnerErr bytes.Buffer
+	exitCode := -1
+	runnerDone := make(chan struct{})
 	go func() {
-		done <- Run(
+		exitCode = Run(
 			context.Background(),
 			"/tmp/sclaude",
 			[]string{"_run-session", record.ID},
-			IO{Out: &bytes.Buffer{}, Err: &bytes.Buffer{}},
+			IO{Out: &runnerOut, Err: &runnerErr},
 			"test",
 		)
+		close(runnerDone)
 	}()
-	select {
-	case code := <-done:
-		if err := admission.Release(); err != nil {
-			t.Fatal(err)
-		}
-		released = true
-		if code != 0 {
-			t.Fatalf("_run-session code = %d, want 0", code)
-		}
-	case <-time.After(time.Second):
-		if err := admission.Release(); err != nil {
-			t.Fatal(err)
-		}
-		released = true
+	t.Cleanup(func() {
+		openReleaseGate()
 		select {
-		case <-done:
-		case <-time.After(5 * time.Second):
+		case <-runnerDone:
+		case <-time.After(30 * time.Second):
+			t.Error("_run-session did not finish during cleanup")
 		}
-		t.Fatal("_run-session blocked on the creator-held state-root admission lock")
+		releaseAdmission()
+	})
+
+	// The runner must reach a durable running state while the creator still
+	// holds the state-root admission lock; total elapsed time is not the
+	// contract, so the deadline below only bounds a hung test.
+	startupDeadline := time.After(30 * time.Second)
+	for {
+		if _, err := os.Lstat(startedPath); err == nil {
+			loaded, err := store.Load(record.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if loaded.State == session.StateRunning && loaded.RunnerPID > 0 && loaded.BackendPID > 0 {
+				break
+			}
+		}
+		select {
+		case <-runnerDone:
+			t.Fatalf("_run-session exited with code %d before startup was observed: stderr=%q", exitCode, runnerErr.String())
+		case <-startupDeadline:
+			t.Fatal("backend did not reach a durable running state while the creator held the state-root admission lock")
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+
+	releaseAdmission()
+	openReleaseGate()
+	select {
+	case <-runnerDone:
+	case <-time.After(30 * time.Second):
+		t.Fatal("_run-session did not finish after the backend release gate opened")
+	}
+	if exitCode != 0 {
+		t.Fatalf("_run-session code = %d, want 0; stderr=%q", exitCode, runnerErr.String())
 	}
 
 	loaded, err := store.Load(record.ID)
@@ -798,6 +842,8 @@ func (r verifyRewriteTransport) RoundTrip(request *http.Request) (*http.Response
 func TestRunInstallReleaseFromPlatformAsset(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "config"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(home, "state"))
 	t.Setenv("XDG_DATA_HOME", filepath.Join(home, "data"))
 	source := filepath.Join(t.TempDir(), "sclaude_darwin_arm64")
 	if err := os.WriteFile(source, []byte("release"), 0o700); err != nil {
