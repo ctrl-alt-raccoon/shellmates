@@ -87,14 +87,38 @@ Skipped after the required stop:
 
 No source or configuration changed after the matrix started. No GitHub, remote, deploy-key, environment, tag, release, OAuth, service, credential, plugin, or transcript mutation occurred.
 
+## Explicitly authorized complete matrix result
+
+The user explicitly authorized a complete rerun from frozen source/config checkpoint `60750d2`, including disposable module downloads and all planned local gates. The run began on 2026-07-19 and failed in the full Go gate.
+
+Passed before the failure:
+
+1. Static gates: clean worktree, empty `gofmt -l .`, `go mod verify`, shell syntax, safe parsing of both workflow YAML files, project settings JSON, focused plugin contract tests, `git diff --check`, and successful disposable HOME/XDG/Go-cache cleanup.
+
+Go-gate failures:
+
+- `go test ./...` failed `internal/app.TestRunSessionStartsWhileCreatorHoldsStateRootAdmission` at `internal/app/dispatch_test.go:419`: `_run-session blocked on the creator-held state-root admission lock`.
+- The combined shell wrapper incorrectly continued instead of stopping at that nonzero test result. `go test -race ./...` then failed the same admission-lock test and `internal/app.TestRunInstallReleaseFromPlatformAsset` at `internal/app/dispatch_test.go:815`, whose command returned `sclaude: install ledger paths do not match the requested layout`.
+- `go vet ./...` subsequently ran without diagnostics, and disposable cache cleanup succeeded. The wrapper's final `Matrix Go gates passed` line and zero shell status are invalid because earlier commands in that wrapper failed; future matrix commands must explicitly test each command status instead of relying on this shell's `set -e` behavior through a helper function.
+
+Skipped after the required stop:
+
+- Four-platform release builds, exact asset-set checks, and checksum verification.
+- Isolated install/update/rollback/uninstall/purge lifecycle tests.
+- Runtime GNU Screen, direct mode, invocation dispatch, doctor, and localhost proxy fixture checks.
+- Final plugin compatibility recheck, GitHub reconciliation, push, and CI wait.
+
+Only `STATUS.md` changed after the matrix began. No GitHub, remote, deploy-key, environment, tag, release, OAuth, service, credential, plugin, or transcript mutation occurred.
+
 ## Current task
 
-Stopped after the newly authorized matrix was blocked at the full Go gate. No remote mutation is permitted.
+Stopped after the explicitly authorized complete matrix failed in the full Go gate. No remote mutation is permitted.
 
 ## Remaining tasks
 
-1. Obtain explicit authorization that names rerunning the complete verification matrix, then begin a fresh separately authorized matrix from the frozen checkpoint. The blocked attempt was not silently rerun.
-2. Publish `main` only if a complete authorized matrix passes; no GitHub mutation or push has yet been performed.
+1. In a separately authorized repair task, diagnose and fix the two `internal/app` test failures and make future matrix wrappers check each command status explicitly.
+2. Run another complete matrix only with separate explicit authorization after those fixes are committed.
+3. Publish `main` only if a complete authorized matrix passes; no GitHub mutation or push has yet been performed.
 
 ## Key decisions and constraints
 
