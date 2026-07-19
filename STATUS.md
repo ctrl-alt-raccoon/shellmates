@@ -41,14 +41,36 @@ Focused Task 25 verification passed:
 - Focused Task 28 checks passed: `python3 -m json.tool .claude/settings.json`, `go test ./internal/backend`, and `git diff --check`.
 - Isolated `claude doctor` validation was skipped: the permission classifier blocked it before execution because Claude Code 2.1.215 may obtain or load the enabled external plugin. No plugin code was installed or run; the no-install/no-invocation boundary was preserved.
 
+## Final one-shot matrix result
+
+The frozen implementation at `d0b6673` was checked once on 2026-07-19. The matrix stopped at the first nonzero command, as required.
+
+Passed before the stop:
+
+1. Static gates: clean worktree, empty `gofmt -l .`, `go mod verify`, shell syntax, safe parsing of both workflow YAML files, project settings JSON, focused plugin contract tests, and `git diff --check`.
+2. Go gates: `go test ./...`, `go test -race ./...`, and `go vet ./...`.
+3. Release gates: four `CGO_ENABLED=0` Darwin/Linux amd64/arm64 builds, exact six-file pre-SBOM asset set, and successful SHA-256 verification for every entry. The disposable release directory was removed by its cleanup trap.
+4. Isolated install lifecycle test groups all reported `ok`: install/update/rollback/uninstall, strict journal recovery, ownership/preservation/purge/private state-root behavior, and localhost release-download/checksum policy.
+
+Failure and cleanup:
+
+- The isolated install command set `HOME` to a fresh temporary root but did not preserve or separately set `GOMODCACHE`, so Go downloaded `gopkg.in/yaml.v3` into that temporary home using read-only module-cache permissions. All four test groups passed, then the shell trap's `rm -rf` failed with `Permission denied`, making the matrix command exit 1.
+- The exact disposable root was subsequently made user-writable and removed. No live user, credential, OAuth, proxy, service, shell-profile, plugin, Codex, or transcript state was touched.
+
+Skipped after the required stop:
+
+- Runtime lifecycle: real managed GNU Screen create/observe/stop, direct non-TTY behavior, disposable `sclaudex` invocation-name dispatch, doctor disposable Screen lifecycle, and localhost models/messages fixtures.
+- Final plugin compatibility recheck beyond the already-passed static declaration and managed setting-source contract.
+- GitHub metadata/environment/deploy-key changes, push, and CI wait.
+
 ## Current task
 
-Freeze the implementation and run the complete final verification matrix exactly once (Task 29). Do not start another adversarial review or modify source/configuration during or after the matrix.
+Stopped after the one-shot matrix failure. No remote mutation is permitted under the approved stopping rule.
 
 ## Remaining tasks
 
-1. Freeze the implementation and run the complete final verification matrix exactly once.
-2. If the matrix passes, reconcile GitHub metadata, protect the `release` environment, add the authorized public deploy key, push `main`, and wait for CI.
+1. In a separately authorized future verification task, fix the matrix harness to use a disposable writable `GOMODCACHE` or a cleanup step that handles Go's read-only cache, then decide whether a new complete matrix is authorized.
+2. Publish `main` only after a complete authorized matrix passes; no GitHub mutation or push was performed in this run.
 
 ## Key decisions and constraints
 
@@ -65,5 +87,6 @@ Freeze the implementation and run the complete final verification matrix exactly
 
 ## Backlog
 
+- Make future isolated Go verification set `GOMODCACHE` explicitly and clean read-only cache contents safely; this matrix was not rerun.
 - Add local `actionlint` coverage in a future task if a trusted installation path is selected; do not block this task on installing it.
 - Consider automating GitHub attestation verification in the installer in a future release, with a separately reviewed trust model.
