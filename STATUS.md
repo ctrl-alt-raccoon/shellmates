@@ -35,16 +35,20 @@ Focused Task 25 verification passed:
 - Focused Task 26 verification passed: `go test ./internal/managedsettings ./internal/backend`.
 - Added repository-portable development rules in `CLAUDE.md`, expanded the isolated one-shot `verify` skill, and added model-agnostic `review-unbiased` and `honesty` skills without personal model, orchestration, or output-style policy.
 - Focused Task 27 validation passed: Ruby safe-YAML/frontmatter and content checks confirmed the exact three skill names, directory/name matching, required summaries/headings, required `CLAUDE.md` sections, and absence of selected machine/model-specific guidance; `git diff --check` passed before the status checkpoint.
+- Declared optional project plugin `codex@openai-codex` from marketplace `openai-codex`, pinned to `openai/codex-plugin-cc` tag `v1.0.6`, without vendoring or invoking plugin code.
+- Added a strict static project-settings contract test requiring one JSON document, the exact marketplace source/tag and enabled plugin, plus an explicit managed-backend assertion that normal setting sources remain enabled.
+- Documented the collaborator trust prompt, user-privilege execution, optional Codex CLI status, and the plugin configuration/authentication/state/app-server/review/transfer boundary in `README.md` and `SECURITY.md`.
+- Focused Task 28 checks passed: `python3 -m json.tool .claude/settings.json`, `go test ./internal/backend`, and `git diff --check`.
+- Isolated `claude doctor` validation was skipped: the permission classifier blocked it before execution because Claude Code 2.1.215 may obtain or load the enabled external plugin. No plugin code was installed or run; the no-install/no-invocation boundary was preserved.
 
 ## Current task
 
-Declare and document the pinned OpenAI Codex project plugin (Task 28) without installing, invoking, configuring, or authenticating it, before the one-shot final matrix.
+Freeze the implementation and run the complete final verification matrix exactly once (Task 29). Do not start another adversarial review or modify source/configuration during or after the matrix.
 
 ## Remaining tasks
 
-1. Declare and document the pinned `codex@openai-codex` project plugin without installing or invoking it.
-2. Freeze the implementation and run the complete final verification matrix exactly once.
-3. If the matrix passes, reconcile GitHub metadata, protect the `release` environment, add the authorized public deploy key, push `main`, and wait for CI.
+1. Freeze the implementation and run the complete final verification matrix exactly once.
+2. If the matrix passes, reconcile GitHub metadata, protect the `release` environment, add the authorized public deploy key, push `main`, and wait for CI.
 
 ## Key decisions and constraints
 

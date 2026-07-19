@@ -135,6 +135,8 @@ When no existing `claudex` is present—or when explicit `--proxy-*` options req
 
 Managed `sclaudex` launches then apply the current wrapper policy in-process and pass the private overlay with `--settings`. Claude Code continues loading normal user, project, and local settings, including permission and security controls; the overlay contains only managed `env` entries so those settings cannot reroute this backend away from the localhost proxy. No settings source is disabled.
 
+This repository also declares the official OpenAI Codex Claude Code plugin as optional project tooling. `.claude/settings.json` pins marketplace `openai/codex-plugin-cc` to tag `v1.0.6` and enables `codex@openai-codex`; Claude Code asks each collaborator to trust the project before obtaining project-declared plugin code. Plugins execute with that user's privileges, so review the pinned source and trust prompt before accepting. This declaration is separate from the managed `sclaudex` route: sclaude does not install, configure, authenticate, invoke, or depend on the plugin, and Codex CLI remains optional for normal setup and doctor checks. In particular, sclaude never calls `/codex:setup`, `/codex:transfer`, Codex login, review gates, app-server brokers, or transcript inspection. Plugin-owned configuration, authentication, state, jobs, app-server behavior, review gates, and explicit transcript transfer remain outside sclaude's trust boundary.
+
 - top-level model `gpt-5.6-sol(xhigh)`
 - Opus/Sonnet/Haiku tier mappings to `gpt-5.6-sol(xhigh)`, `gpt-5.6-sol(high)`, and `gpt-5.6-luna(low)`
 - `CLAUDE_CODE_AUTO_COMPACT_WINDOW=300000`
