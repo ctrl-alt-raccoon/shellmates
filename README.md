@@ -140,6 +140,7 @@ Managed `sclaudex` launches then apply the current wrapper policy in-process and
 - `CLAUDE_CODE_AUTO_COMPACT_WINDOW=300000`
 - `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=60`
 - `CLAUDE_CODE_MAX_OUTPUT_TOKENS=64000`
+- `CLAUDE_CODE_MAX_WEB_SEARCHES_PER_SESSION=1000`
 - `CLAUDE_CODE_SUBAGENT_MODEL=gpt-5.6-sol(high)`
 - `--disallowedTools=Skill(claude-api)` to prevent the oversized bundled skill from exhausting this proxy backend's effective context window
 

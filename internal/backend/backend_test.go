@@ -62,6 +62,7 @@ func TestManagedProxyCommand(t *testing.T) {
 		"CLAUDE_CODE_AUTO_COMPACT_WINDOW=300000",
 		"CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=60",
 		"CLAUDE_CODE_MAX_OUTPUT_TOKENS=64000",
+		"CLAUDE_CODE_MAX_WEB_SEARCHES_PER_SESSION=1000",
 		"CLAUDE_CODE_SUBAGENT_MODEL=gpt-5.6-sol(high)",
 	} {
 		if !strings.Contains(joined, wanted) {
@@ -91,6 +92,8 @@ func TestManagedProxyRemovesConflictingProviderEnvironment(t *testing.T) {
 		"CLAUDE_CODE_USE_BEDROCK=1",
 		"CLAUDE_CODE_SIMPLE=1",
 		"CLAUDE_CODE_SIMPLE=stale",
+		"CLAUDE_CODE_MAX_WEB_SEARCHES_PER_SESSION=7",
+		"CLAUDE_CODE_MAX_WEB_SEARCHES_PER_SESSION=stale",
 		"CLAUDE_CODE_USE_VERTEX=1",
 		"CLAUDE_CODE_USE_FOUNDRY=1",
 		"ANTHROPIC_BEDROCK_BASE_URL=http://127.0.0.1:9991",
@@ -123,6 +126,9 @@ func TestManagedProxyRemovesConflictingProviderEnvironment(t *testing.T) {
 	}
 	if strings.Count(joined, "ANTHROPIC_AUTH_TOKEN=") != 1 || !strings.Contains(joined, "ANTHROPIC_AUTH_TOKEN=sk-test-secret") {
 		t.Fatalf("auth token was not replaced exactly once: %s", joined)
+	}
+	if !reflect.DeepEqual(values["CLAUDE_CODE_MAX_WEB_SEARCHES_PER_SESSION"], []string{managedsettings.MaxWebSearchesPerSession}) {
+		t.Fatalf("web-search limit was not replaced exactly once: %q", values["CLAUDE_CODE_MAX_WEB_SEARCHES_PER_SESSION"])
 	}
 }
 

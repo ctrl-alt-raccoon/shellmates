@@ -11,14 +11,15 @@ import (
 )
 
 const (
-	Model              = "gpt-5.6-sol(xhigh)"
-	OpusModel          = Model
-	SonnetModel        = "gpt-5.6-sol(high)"
-	HaikuModel         = "gpt-5.6-luna(low)"
-	SubagentModel      = SonnetModel
-	AutoCompactWindow  = "300000"
-	AutoCompactPercent = "60"
-	MaxOutputTokens    = "64000"
+	Model                    = "gpt-5.6-sol(xhigh)"
+	OpusModel                = Model
+	SonnetModel              = "gpt-5.6-sol(high)"
+	HaikuModel               = "gpt-5.6-luna(low)"
+	SubagentModel            = SonnetModel
+	AutoCompactWindow        = "300000"
+	AutoCompactPercent       = "60"
+	MaxOutputTokens          = "64000"
+	MaxWebSearchesPerSession = "1000"
 )
 
 type Overlay struct {
@@ -39,23 +40,24 @@ func Encode(baseURL, apiKey string) ([]byte, error) {
 
 func Environment(baseURL, apiKey string) map[string]string {
 	return map[string]string{
-		"ANTHROPIC_API_KEY":               "",
-		"ANTHROPIC_AUTH_TOKEN":            apiKey,
-		"ANTHROPIC_BASE_URL":              baseURL,
-		"ANTHROPIC_BEDROCK_BASE_URL":      "",
-		"ANTHROPIC_DEFAULT_HAIKU_MODEL":   HaikuModel,
-		"ANTHROPIC_DEFAULT_OPUS_MODEL":    OpusModel,
-		"ANTHROPIC_DEFAULT_SONNET_MODEL":  SonnetModel,
-		"ANTHROPIC_FOUNDRY_BASE_URL":      "",
-		"ANTHROPIC_VERTEX_BASE_URL":       "",
-		"CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": AutoCompactPercent,
-		"CLAUDE_CODE_AUTO_COMPACT_WINDOW": AutoCompactWindow,
-		"CLAUDE_CODE_MAX_OUTPUT_TOKENS":   MaxOutputTokens,
-		"CLAUDE_CODE_SIMPLE":              "",
-		"CLAUDE_CODE_SUBAGENT_MODEL":      SubagentModel,
-		"CLAUDE_CODE_USE_BEDROCK":         "",
-		"CLAUDE_CODE_USE_FOUNDRY":         "",
-		"CLAUDE_CODE_USE_VERTEX":          "",
+		"ANTHROPIC_API_KEY":                        "",
+		"ANTHROPIC_AUTH_TOKEN":                     apiKey,
+		"ANTHROPIC_BASE_URL":                       baseURL,
+		"ANTHROPIC_BEDROCK_BASE_URL":               "",
+		"ANTHROPIC_DEFAULT_HAIKU_MODEL":            HaikuModel,
+		"ANTHROPIC_DEFAULT_OPUS_MODEL":             OpusModel,
+		"ANTHROPIC_DEFAULT_SONNET_MODEL":           SonnetModel,
+		"ANTHROPIC_FOUNDRY_BASE_URL":               "",
+		"ANTHROPIC_VERTEX_BASE_URL":                "",
+		"CLAUDE_AUTOCOMPACT_PCT_OVERRIDE":          AutoCompactPercent,
+		"CLAUDE_CODE_AUTO_COMPACT_WINDOW":          AutoCompactWindow,
+		"CLAUDE_CODE_MAX_OUTPUT_TOKENS":            MaxOutputTokens,
+		"CLAUDE_CODE_MAX_WEB_SEARCHES_PER_SESSION": MaxWebSearchesPerSession,
+		"CLAUDE_CODE_SIMPLE":                       "",
+		"CLAUDE_CODE_SUBAGENT_MODEL":               SubagentModel,
+		"CLAUDE_CODE_USE_BEDROCK":                  "",
+		"CLAUDE_CODE_USE_FOUNDRY":                  "",
+		"CLAUDE_CODE_USE_VERTEX":                   "",
 	}
 }
 

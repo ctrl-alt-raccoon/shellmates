@@ -30,18 +30,20 @@ Focused Task 25 verification passed:
 - `git diff --check`
 - Direct inspection confirmed both checkout-free publication steps set `GH_REPO` and all seven `gh release` invocations execute within those environments.
 - `actionlint` is not installed; GitHub Actions remains the authoritative semantic workflow validator.
+- Aligned managed `sclaudex` with the current CLIProxyAPI runbook by enforcing `CLAUDE_CODE_MAX_WEB_SEARCHES_PER_SESSION=1000` in the child environment and strict private settings overlay.
+- Added regression coverage proving the setting is required exactly, changed or missing overlay values fail closed, and stale duplicate inherited values are replaced by one authoritative managed value.
+- Focused Task 26 verification passed: `go test ./internal/managedsettings ./internal/backend`.
 
 ## Current task
 
-Bring managed `sclaudex` settings into parity with the current CLIProxyAPI runbook (Task 26), then add the curated project process guidance and pinned OpenAI Codex plugin declaration before the one-shot final matrix.
+Add curated repository-portable `CLAUDE.md` and verification/review/honesty skills (Task 27), followed by the pinned OpenAI Codex plugin declaration before the one-shot final matrix.
 
 ## Remaining tasks
 
-1. Add `CLAUDE_CODE_MAX_WEB_SEARCHES_PER_SESSION=1000` to the canonical managed environment, tests, and documentation.
-2. Add curated repository-portable `CLAUDE.md` and verification/review/honesty skills.
-3. Declare and document the pinned `codex@openai-codex` project plugin without installing or invoking it.
-4. Freeze the implementation and run the complete final verification matrix exactly once.
-5. If the matrix passes, reconcile GitHub metadata, protect the `release` environment, add the authorized public deploy key, push `main`, and wait for CI.
+1. Add curated repository-portable `CLAUDE.md` and verification/review/honesty skills.
+2. Declare and document the pinned `codex@openai-codex` project plugin without installing or invoking it.
+3. Freeze the implementation and run the complete final verification matrix exactly once.
+4. If the matrix passes, reconcile GitHub metadata, protect the `release` environment, add the authorized public deploy key, push `main`, and wait for CI.
 
 ## Key decisions and constraints
 
