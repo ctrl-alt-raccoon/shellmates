@@ -1,0 +1,64 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Verify source and tests
+        run: |
+          test -z "$(gofmt -l .)"
+          go mod verify
+          sh -n install.sh scripts/build-release.sh
+          go test ./...
+          go test -race ./...
+          go vet ./...
+      - name: Build release assets
+        run: ./scripts/build-release.sh "${GITHUB_REF_NAME}"
+      - name: Verify release checksums
+        working-directory: dist/${{ github.ref_name }}
+        run: sha256sum --check SHA256SUMS
+      - name: Verify release asset set
+        run: |
+          test "$(find "dist/${GITHUB_REF_NAME}" -maxdepth 1 -type f | wc -l)" -eq 6
+          test -f "dist/${GITHUB_REF_NAME}/sclaude_darwin_amd64"
+          test -f "dist/${GITHUB_REF_NAME}/sclaude_darwin_arm64"
+          test -f "dist/${GITHUB_REF_NAME}/sclaude_linux_amd64"
+          test -f "dist/${GITHUB_REF_NAME}/sclaude_linux_arm64"
+          test -f "dist/${GITHUB_REF_NAME}/install.sh"
+          test -f "dist/${GITHUB_REF_NAME}/SHA256SUMS"
+      - name: Generate SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        with:
+          path: .
+          format: spdx-json
+          output-file: dist/${{ github.ref_name }}/sclaude.spdx.json
+      - name: Attest binaries
+        uses: actions/attest-build-provenance@96b4a1ef7235a096b17240c259729fdd70c83d45 # v2
+        with:
+          subject-path: dist/${{ github.ref_name }}/sclaude_*
+      - name: Publish immutable release assets
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          overwrite_files: false
+          files: |
+            dist/${{ github.ref_name }}/sclaude_*
+            dist/${{ github.ref_name }}/install.sh
+            dist/${{ github.ref_name }}/SHA256SUMS
+            dist/${{ github.ref_name }}/sclaude.spdx.json

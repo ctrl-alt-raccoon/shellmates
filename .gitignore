@@ -1,0 +1,7 @@
+.DS_Store
+*.out
+coverage.txt
+dist/
+bin/
+.sclaude-test/
+.claude/settings.local.json

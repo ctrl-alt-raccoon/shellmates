@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install GNU Screen
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y screen
+      - name: Prefer Homebrew GNU Screen
+        if: runner.os == 'macOS'
+        run: brew install screen && echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
+      - name: Format check
+        run: test -z "$(gofmt -l .)"
+      - name: Verify modules
+        run: go mod verify
+      - name: Check shell syntax
+        run: sh -n install.sh scripts/build-release.sh
+      - name: Test
+        run: go test ./...
+      - name: Race test
+        run: go test -race ./...
+      - name: Vet
+        run: go vet ./...
+
+  cross-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+      - name: Build snapshot assets
+        run: ./scripts/build-release.sh snapshot
+      - name: Verify snapshot checksums
+        working-directory: dist/snapshot
+        run: sha256sum --check SHA256SUMS
+      - name: Verify release asset set
+        run: |
+          test "$(find dist/snapshot -maxdepth 1 -type f | wc -l)" -eq 6
+          test -f dist/snapshot/sclaude_darwin_amd64
+          test -f dist/snapshot/sclaude_darwin_arm64
+          test -f dist/snapshot/sclaude_linux_amd64
+          test -f dist/snapshot/sclaude_linux_arm64
+          test -f dist/snapshot/install.sh
+          test -f dist/snapshot/SHA256SUMS
