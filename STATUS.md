@@ -40,8 +40,10 @@ Focused Task 25 verification passed:
 - Documented the collaborator trust prompt, user-privilege execution, optional Codex CLI status, and the plugin configuration/authentication/state/app-server/review/transfer boundary in `README.md` and `SECURITY.md`.
 - Focused Task 28 checks passed: `python3 -m json.tool .claude/settings.json`, `go test ./internal/backend`, and `git diff --check`.
 - Isolated `claude doctor` validation was skipped: the permission classifier blocked it before execution because Claude Code 2.1.215 may obtain or load the enabled external plugin. No plugin code was installed or run; the no-install/no-invocation boundary was preserved.
+- After the first matrix stopped, the user separately authorized a new verification task. The project `verify` skill now requires dedicated disposable `GOMODCACHE` and `GOCACHE` directories and makes the exact temporary root user-writable before removal.
+- Focused harness verification passed: an isolated `go test ./internal/setup` downloaded modules into the dedicated disposable cache, the cache files were made read-only to reproduce Go cache permissions, cleanup succeeded, and the exact temporary root was confirmed absent.
 
-## Final one-shot matrix result
+## Prior one-shot matrix result
 
 The frozen implementation at `d0b6673` was checked once on 2026-07-19. The matrix stopped at the first nonzero command, as required.
 
@@ -65,12 +67,12 @@ Skipped after the required stop:
 
 ## Current task
 
-Stopped after the one-shot matrix failure. No remote mutation is permitted under the approved stopping rule.
+The isolated Go cache harness fix is complete. Freeze the resulting checkpoint and run the newly authorized complete verification matrix exactly once.
 
 ## Remaining tasks
 
-1. In a separately authorized future verification task, fix the matrix harness to use a disposable writable `GOMODCACHE` or a cleanup step that handles Go's read-only cache, then decide whether a new complete matrix is authorized.
-2. Publish `main` only after a complete authorized matrix passes; no GitHub mutation or push was performed in this run.
+1. Run the newly authorized complete matrix once. Stop on its first failure, record the skipped remainder, and make no remote mutation if it fails.
+2. Publish `main` only if that complete matrix passes; no GitHub mutation or push has yet been performed.
 
 ## Key decisions and constraints
 
@@ -82,11 +84,10 @@ Stopped after the one-shot matrix failure. No remote mutation is permitted under
 - Existing release assets must never be overwritten in place; fixes require a new release tag.
 - Local commits and the final verified push of `main` are authorized. Do not create a tag or publish a release.
 - Create a local commit after each tracked task is completed and update this file at each boundary.
-- After the one-shot final matrix, only `STATUS.md` may change before its verification checkpoint commit.
+- After each authorized complete matrix starts, only `STATUS.md` may change before its verification checkpoint commit.
 - Do not run another adversarial review. Remaining ideas belong in the backlog below.
 
 ## Backlog
 
-- Make future isolated Go verification set `GOMODCACHE` explicitly and clean read-only cache contents safely; this matrix was not rerun.
 - Add local `actionlint` coverage in a future task if a trusted installation path is selected; do not block this task on installing it.
 - Consider automating GitHub attestation verification in the installer in a future release, with a separately reviewed trust model.

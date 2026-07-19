@@ -10,9 +10,10 @@ Run this skill only after implementation is frozen. The complete matrix runs onc
 ## Safety setup
 
 1. Use fresh temporary `HOME`, `XDG_CONFIG_HOME`, `XDG_STATE_HOME`, and `XDG_DATA_HOME` roots for every test that could resolve user state.
-2. Use explicit `127.0.0.1` fixtures for CLIProxyAPI models/messages behavior. Never read live credentials, OAuth state, service state, proxy config, `~/.codex/`, or Claude transcripts.
-3. Never change real shell profiles, install dependencies, run system-level `sudo`, log users out, or invoke plugin setup/transfer/authentication.
-4. Build disposable binaries outside tracked source paths where practical and clean all managed Screen sessions started by the matrix.
+2. Set `GOMODCACHE` and `GOCACHE` to dedicated directories inside the disposable root before running Go commands under a temporary `HOME`. On cleanup, make that exact disposable root user-writable before removing it so Go's read-only module-cache files cannot make the verification command fail after its checks pass.
+3. Use explicit `127.0.0.1` fixtures for CLIProxyAPI models/messages behavior. Never read live credentials, OAuth state, service state, proxy config, `~/.codex/`, or Claude transcripts.
+4. Never change real shell profiles, install dependencies, run system-level `sudo`, log users out, or invoke plugin setup/transfer/authentication.
+5. Build disposable binaries outside tracked source paths where practical and clean all managed Screen sessions started by the matrix.
 
 ## Matrix
 
