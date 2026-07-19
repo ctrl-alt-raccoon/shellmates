@@ -12,30 +12,30 @@ The vendor commands `claude`, `claudex`, and `codex` are never replaced or shado
 
 ## Quick install
 
-The public installer becomes available after the first GitHub release:
+The public installer becomes available after the first GitHub release. Download a pinned installer and checksum manifest instead of piping network content directly to a shell:
 
 ```sh
-curl -fsSL https://github.com/ctrl-alt-raccoon/sclaude/releases/latest/download/install.sh | sh
+version=v0.1.0
+base="https://github.com/ctrl-alt-raccoon/sclaude/releases/download/$version"
+curl --proto '=https' --proto-redir '=https' -fLO "$base/install.sh"
+curl --proto '=https' --proto-redir '=https' -fLO "$base/SHA256SUMS"
+grep '  install.sh$' SHA256SUMS | shasum -a 256 -c -
+less install.sh
+sh install.sh --version "$version"
 ```
 
-For a reproducible install, pin a release tag:
-
-```sh
-curl -fsSL https://github.com/ctrl-alt-raccoon/sclaude/releases/download/v0.1.0/install.sh \
-  | sh -s -- --version v0.1.0
-```
+On Linux, replace `shasum -a 256 -c -` with `sha256sum -c -` if needed. Comparing `install.sh` with the co-hosted manifest detects corruption or inconsistent release assets, but does not independently authenticate either file. Before execution, establish provenance separately—for example, inspect the pinned installer and release, verify the tag/commit through a trusted path, and verify the published GitHub attestation for the binary when available. `latest` is convenient but mutable and therefore less reproducible than a pinned tag.
 
 To install the commands elsewhere, use the installer option or environment variable. Put setup options after `--`:
 
 ```sh
-curl -fsSL https://github.com/ctrl-alt-raccoon/sclaude/releases/latest/download/install.sh \
-  | sh -s -- --bin-dir "$HOME/bin" -- --headless
+sh install.sh --version "$version" --bin-dir "$HOME/bin" -- --headless
 
 SCLAUDE_BIN_DIR="$HOME/bin" \
-  sh install.sh -- --skip-codex
+  sh install.sh --version "$version" -- --skip-codex
 ```
 
-The bootstrap downloads the complete native binary, verifies its published SHA-256 digest, installs a versioned copy, creates only `sclaude` and `sclaudex`, and then runs setup. `SCLAUDE_BIN_DIR` defaults to `$HOME/.local/bin`; `--bin-dir` overrides it. The same directory is passed to setup so its shell `PATH` configuration matches the installed command location.
+After you choose to trust and run the bootstrap, it downloads the complete native binary and the release's SHA-256 manifest, checks that the bytes agree, installs a versioned copy, creates only `sclaude` and `sclaudex`, and then runs setup. Because the binary and manifest come from the same release channel, that check is an integrity/consistency check rather than independent publisher authentication. `SCLAUDE_BIN_DIR` defaults to `$HOME/.local/bin`; `--bin-dir` overrides it. The same directory is passed to setup so its shell `PATH` configuration matches the installed command location.
 
 Supported automatic setup:
 
@@ -55,7 +55,7 @@ Other Linux distributions receive dependency guidance but no guessed package-man
 | CLIProxyAPI | Required only for managed `sclaudex`; Homebrew can install it on macOS, while Linux setup prints the upstream manual installation command |
 | Codex CLI | Optional setup tooling; setup prints optional manual guidance when it is missing |
 
-Setup never downloads and executes mutable Claude Code, Codex CLI, or CLIProxyAPI installer scripts. HTTPS authenticates the transport endpoint but does not authenticate mutable script content. Review and run any printed third-party installation command yourself, then rerun setup. Codex CLI is optional and is never used as the `sclaudex` harness or treated as a runtime-health prerequisite; use `--skip-codex` to suppress its optional guidance.
+Setup never downloads and executes mutable Claude Code, Codex CLI, or CLIProxyAPI installer scripts. HTTPS authenticates the transport endpoint but does not authenticate mutable script content. Printed pipe-to-shell commands download and immediately execute remote content; they cannot be inspected between those operations. Independently authenticate the source or download a fixed copy, inspect it, and invoke it separately before rerunning setup. Codex CLI is optional and is never used as the `sclaudex` harness or treated as a runtime-health prerequisite; use `--skip-codex` to suppress its optional guidance.
 
 Useful setup modes:
 
@@ -149,7 +149,7 @@ The generated key is never stored in session metadata, prompts, command argument
 
 ### Linux system service and Docker
 
-When reviewed and run manually, the upstream Linux installer normally creates a per-user systemd unit. On a server that instead uses a system service, create a host-specific unit such as:
+When separately authenticated and run manually, the upstream Linux installer normally creates a per-user systemd unit. On a server that instead uses a system service, create a host-specific unit such as:
 
 ```ini
 # /etc/systemd/system/cliproxyapi.service
@@ -290,7 +290,7 @@ go build ./cmd/sclaude
 ./scripts/build-release.sh snapshot
 ```
 
-The release build produces static binaries for macOS/Linux on amd64/arm64, a copy of `install.sh`, and `SHA256SUMS` covering every binary and the installer. CI verifies formatting, modules, tests, race tests, vet, shell syntax, the four platform builds, and the generated checksums before release publication.
+The release build produces `CGO_ENABLED=0` binaries for macOS/Linux on amd64/arm64, a copy of `install.sh`, and `SHA256SUMS` covering every binary and the installer. Linux builds avoid cgo-linked C libraries; macOS Mach-O binaries still use operating-system libraries/frameworks and are not claimed to be fully static. CI verifies formatting, modules, tests, race tests, vet, shell syntax, the four platform builds, and the generated checksums before release publication.
 
 ## Screen compatibility
 
@@ -298,4 +298,4 @@ The implementation supports older GNU Screen releases, including macOS Screen 4.
 
 ## Security
 
-See [SECURITY.md](SECURITY.md). The recommended reproducible install pins a release tag. GitHub releases include checksums, an SBOM, and GitHub build-provenance attestations for the binaries. The installer verifies the published SHA-256 manifest; provenance and the SBOM are separate release artifacts and are not verified automatically by `install.sh`. Published release assets must not be replaced in place; fixes use a new version.
+See [SECURITY.md](SECURITY.md). The recommended reproducible install pins a release tag. GitHub releases include checksums, an SBOM, and GitHub build-provenance attestations for the binaries. The installer verifies consistency with the co-hosted SHA-256 manifest; this does not independently authenticate the release channel. Provenance and the SBOM are separate release artifacts and are not verified automatically by `install.sh`. Published release assets must not be replaced in place; fixes use a new version.

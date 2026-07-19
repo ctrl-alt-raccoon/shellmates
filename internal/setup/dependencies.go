@@ -443,7 +443,7 @@ func unsupportedLinuxPackagesMessage(platform Platform, packages []string) strin
 
 func manualDependencyInstallError(name, command string) error {
 	return fmt.Errorf(
-		"%s is missing; sclaude does not download or execute mutable third-party installer scripts automatically; review and run this command manually, then rerun setup: %s",
+		"%s is missing; sclaude does not download or execute mutable third-party installer scripts automatically; the command below downloads and immediately executes remote content, so independently authenticate the source or download and inspect a fixed copy before running it, then rerun setup: %s",
 		name,
 		command,
 	)
@@ -456,7 +456,7 @@ func printManualDependencyInstall(output io.Writer, dryRun bool, name, command s
 	}
 	_, _ = fmt.Fprintf(
 		output,
-		"%s%s is missing; sclaude did not download or execute its mutable installer. Review and run manually if wanted: %s\n",
+		"%s%s is missing; sclaude did not download or execute its mutable installer. The optional command below downloads and immediately executes remote content; independently authenticate the source or download and inspect a fixed copy before running it: %s\n",
 		prefix,
 		name,
 		command,
