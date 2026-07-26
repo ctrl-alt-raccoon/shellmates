@@ -133,14 +133,36 @@ Focused verification (authorized focused checks only; no complete matrix was run
 - Scoped diff review, cap three rounds: round one found the diff clean apart from one low-severity failure-path diagnostic ordering observation, recorded in the backlog below. The loop ended after round one per the low-only exit rule.
 - Full `go test ./...`, race suite, vet, release, install-lifecycle, runtime, plugin, and GitHub stages were intentionally not run; they belong to the separately authorized complete matrix.
 
+## Authorized complete matrix from `80a9c30`: passed
+
+The user explicitly authorized one complete matrix from frozen source/config checkpoint `80a9c30`. It ran on 2026-07-26 and every stage passed. Each Go command used its own disposable root with dedicated `HOME`, `XDG_CONFIG_HOME`, `XDG_STATE_HOME`, `XDG_DATA_HOME`, `GOMODCACHE`, and `GOCACHE`; every command and cleanup status was inspected explicitly before the next command, and each root was confirmed absent after removal.
+
+1. Static gates: clean worktree at `80a9c30`, empty `gofmt -l .`, `go mod verify` reported all modules verified, `sh -n install.sh scripts/build-release.sh`, safe Ruby YAML parsing of both workflow files, `python3 -m json.tool .claude/settings.json`, `git diff --check`, and the plugin contract tests `TestProjectCodexPluginDeclaration` and `TestManagedProxyPreservesDefaultSettingSources` (`ok`, 0.339s).
+2. Go gates, three separately checked commands: `go test ./...` (`ok` for app 4.060s, backend 1.004s, config 0.444s, fssecure 2.485s, managedsettings 2.044s, screen 4.345s, session 1.975s, setup 15.097s), `go test -race ./...` (all packages `ok`, setup 16.456s), and `go vet ./...` with no diagnostics. The two tests that failed the `60750d2` matrix now pass in both the ordinary and race suites.
+3. Release gates: `scripts/build-release.sh v0.0.0-matrix.80a9c30` produced the four `CGO_ENABLED=0` binaries; the directory contained exactly `SHA256SUMS`, `install.sh`, and the four platform binaries; `shasum -a 256 -c SHA256SUMS` reported `OK` for all five entries; `file` confirmed Mach-O arm64 and statically linked ELF x86-64 outputs.
+4. Isolated install lifecycle: the install/update/rollback/uninstall/purge, journal-recovery, ledger, ownership, preservation, state-root, download, and checksum groups in `internal/setup` reported `ok` (5.133s), including `TestUninstallRejectsModifiedInactiveHistoricalRelease`, `TestUninstallRecoversInterruptedTransaction`, `TestUninstallJournalFailsClosed`, and `TestUpdateBoundsAllResponsesAndDoesNotLeakBodies`.
+5. Runtime lifecycle against the `testdata/fake-backend` fixture and host Screen 4.00.03: a detached managed session reached `running` with Screen PID 9301, runner PID 9303, and backend PID 9304 matching the backend's own marker, and its record persisted no prompts or backend arguments. A second session was stopped by the manager and recorded `stopped` with `end_reason: stopped-by-manager` and a removed socket. Direct non-TTY mode passed arguments through and preserved exit statuses 2, 7, and 3 while creating no session records, including through a disposable `sclaudex` link. `doctor` reported all checks OK and observed then removed its uniquely named disposable session, leaving no doctor socket. The launch directory was empty after consumption and the state root retained mode `0700`.
+6. Managed proxy checks ran only against explicit localhost fixtures: `TestCommandVerifyRequiresConfiguredManagedMode`, `TestCommandVerifyUsesOnlyRuntimeConfiguredArtifacts`, `TestCommandVerifyRejectsInvalidArtifactsBeforeHTTP`, and `TestCommandVerifyDoesNotExposeEndpointResponseBody` all passed. No live credentials, OAuth state, service state, or production proxy configuration was read or changed.
+
+Corrections made during the run, none of which were product failures:
+
+- The first workflow-parse invocation used a Ruby API this host lacks, and the first asset-set comparison used a locale-dependent sort order. Both checks were reissued correctly and passed.
+- The first runtime config fixture used the key `cliproxy_service`; the schema requires `cliproxyapi_service`, and strict parsing correctly rejected the file. The fixture was corrected.
+- The first `stop` invocation received no confirmation on a non-TTY stdin and correctly declined to act, and the first fixture backend exited on its own 30-second sleep, so the manager-stop path was re-exercised with a long-lived backend and `--yes`.
+
+Cleanup and scope:
+
+- Every disposable HOME/XDG/Go-cache root, the generated release directory, and the managed sessions started by this matrix were removed. A pre-existing detached session `sc-claude-test-38b541c1` (PID 63978) from earlier work was left untouched because this matrix did not create it; remove it manually if it is no longer wanted.
+- Only `STATUS.md` changed after the matrix began. No GitHub, remote, deploy-key, environment, tag, release, OAuth, service, credential, plugin, Codex, or transcript state was accessed or mutated.
+
 ## Current task
 
-Repair complete and committed. Awaiting separate explicit authorization for the next complete matrix. No remote mutation is permitted.
+The complete authorized matrix passed at `80a9c30`. Publication of `main` remains pending and requires separate explicit authorization for each outward action.
 
 ## Remaining tasks
 
-1. Run another complete matrix only with separate explicit authorization from the new frozen checkpoint.
-2. Publish `main` only if a complete authorized matrix passes; no GitHub mutation or push has yet been performed.
+1. Publish `main` only when separately authorized: GitHub repository metadata and topics, protected `release` environment, deploy-key addition, origin configuration, push, and CI wait. None has been performed.
+2. Do not create a tag or release; that remains explicitly unauthorized.
 
 ## Key decisions and constraints
 
