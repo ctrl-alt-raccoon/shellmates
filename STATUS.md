@@ -155,9 +155,31 @@ Cleanup and scope:
 - Every disposable HOME/XDG/Go-cache root, the generated release directory, and the managed sessions started by this matrix were removed. A pre-existing detached session `sc-claude-test-38b541c1` (PID 63978) from earlier work was left untouched because this matrix did not create it; remove it manually if it is no longer wanted.
 - Only `STATUS.md` changed after the matrix began. No GitHub, remote, deploy-key, environment, tag, release, OAuth, service, credential, plugin, Codex, or transcript state was accessed or mutated.
 
+## User-directed independent redo of the matrix and analysis: passed
+
+The user directed that the preceding model's matrix run and analysis be redone from scratch by a different model, trusting none of its results. The redo ran on 2026-07-26 from the same frozen source/config checkpoint `80a9c30` (worktree clean at `36c5623`; `git diff 80a9c30..HEAD` touches only `STATUS.md`).
+
+Re-derived analysis, from primary evidence rather than the prior record:
+
+- `git diff --stat d0b6673 60750d2` touches only `.claude/skills/verify/SKILL.md` and `STATUS.md`, confirming the `60750d2` matrix failure had no product-code cause.
+- `git show --stat 80a9c30` touches exactly the three authorized files; no production code changed in the repair.
+- `_run-session` loads runtime via `config.Load` (`internal/app/dispatch.go:447`), and the only product `stateroot.Acquire` sites are `internal/session/manager.go:76` and `internal/setup/setup_transaction.go:114`, neither reachable from the runner; the session-store lock is a child lock file, a different inode from the admission flock on the state-root directory FD, so no contention between them is possible. The old test's one-second whole-lifecycle deadline was the defect; the repaired test asserts the actual contract.
+- The repaired test was re-reviewed for data races and leak paths: all reads of the runner exit code and output buffers sit behind the `runnerDone` happens-before edge, the release-gate/drain cleanup runs before `t.TempDir` removal, and no test in the repository calls `t.Parallel()`.
+
+Independent matrix rerun, every stage with explicitly captured command and cleanup statuses and per-command disposable roots (`HOME`, three XDG roots, `GOMODCACHE`, `GOCACHE`), each root confirmed absent after removal:
+
+1. Static gates: empty `gofmt -l .`, `go mod verify`, `sh -n` on both shell entrypoints, Ruby safe-YAML parse of both workflows, `python3 -m json.tool .claude/settings.json`, `git diff --check`, and both plugin contract tests (`ok`, 0.255s). All passed.
+2. Go gates: `go test ./...` (all packages `ok`, setup 15.599s), `go test -race ./...` (all `ok`, setup 17.462s), `go vet ./...` clean — three separate roots, statuses 0, cleanups 0.
+3. Release gates: four `CGO_ENABLED=0` builds; exact six-file asset set under `LC_ALL=C` comparison; `shasum -a 256 -c` reported `OK` for all five entries; `file` confirmed Mach-O x86_64/arm64 and statically linked ELF x86-64/aarch64 for all four binaries.
+4. Install lifecycle: the complete `./internal/setup` package (`ok`, 13.199s, `-count=1`) — a superset of the prior run's regex-selected groups.
+5. Runtime lifecycle: detached managed session reached `running` with Screen/runner/backend PIDs 68679/68681/68682, the backend's self-written marker matching the recorded backend PID; the record contained no argument/prompt/environment fields, the launch file was consumed, and the state root held mode `0700`. Manager stop with `--yes` recorded `stopped-by-manager` and removed the socket. Direct non-TTY mode returned empty stdout/stderr with status 0 and preserved statuses 7 and 3 (the latter through a disposable `sclaudex` link) with no new session records. Doctor passed all checks and removed its disposable Screen session.
+6. Managed proxy checks: all four `TestCommandVerify*` localhost-fixture tests passed in an isolated root. No live credentials, OAuth, service, or proxy state was touched.
+
+Redo harness notes: one status capture initially used the bash-only `PIPESTATUS` in this zsh environment and produced an empty value; the command was rerun with direct exit-status capture before its result was accepted. The prior run's recorded results were all reproduced; no discrepancies were found. The pre-existing detached session `sc-claude-test-38b541c1` remains untouched. All disposable roots, the `dist/v0.0.0-redo.80a9c30` directory, and matrix-created Screen sessions were removed; only `STATUS.md` changed after the redo began, and no GitHub, remote, tag, release, credential, OAuth, service, plugin, Codex, or transcript state was accessed or mutated.
+
 ## Current task
 
-The complete authorized matrix passed at `80a9c30`. Publication of `main` remains pending and requires separate explicit authorization for each outward action.
+The complete authorized matrix passed at `80a9c30` and was independently reproduced by a user-directed redo. Publication of `main` remains pending and requires separate explicit authorization for each outward action.
 
 ## Remaining tasks
 
