@@ -179,7 +179,23 @@ Redo harness notes: one status capture initially used the bash-only `PIPESTATUS`
 
 ## Current task
 
-The complete authorized matrix passed at `80a9c30` and was independently reproduced by a user-directed redo. Publication of `main` remains pending and requires separate explicit authorization for each outward action.
+2026-09-04: the user authorized the audit repairs followed by native Codex/scodex support, including backend-specific configuration and argument semantics. This is a new implementation task after the historical July freeze. Publication remains out of scope. New harness/house rules await the user's forthcoming instructions.
+
+Lifecycle/storage implementation is complete at the focused-gate checkpoint:
+
+- Screen accepts legacy and timestamped listings and reports ambiguous/partial output instead of declaring absence.
+- Failed/unconfirmed stops remain active `stopping` records; explicit retry works. Terminal records with surviving sockets block prune/uninstall and can be stopped explicitly without resurrecting their terminal state.
+- Prune fails closed on warnings and rechecks the current record under the store lock.
+- Session directories and files use anchored descriptors, no-follow opens, owned/private regular-file checks, bounded reads, and lock identity revalidation. Symlinks, hardlinks and FIFOs are rejected without external mutation.
+- The next store lock holder removes abandoned `.consume-*` and `.sclaude-*` files. Concurrent cleanup and consumers preserve one-use delivery. Session records are published before launch requests to remove a cleanup race.
+
+Three-round focused verification cap declared before implementation. Using `/private/tmp/sclaude-audit-20260904.Q1IBnx/run-check.sh` with disposable HOME/XDG/cache/Screen/TMPDIR:
+
+1. `go test -count=1 ./internal/session ./internal/screen ./internal/fssecure` passed.
+2. `go test -race -count=1 ./internal/session ./internal/screen ./internal/fssecure ./internal/app`: the first three packages passed; app fixture startup was blocked by the sandbox's localhost bind restriction.
+3. The exact race command rerun with localhost fixture permission passed all four packages (session 2.300s, screen 3.800s, fssecure 2.163s, app 2.019s).
+
+`gofmt` and `git diff --check` passed. No live backend/account/service state was used. The final complete matrix is reserved for the native Codex implementation checkpoint.
 
 ## Remaining tasks
 

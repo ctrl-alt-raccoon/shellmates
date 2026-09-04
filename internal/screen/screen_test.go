@@ -33,6 +33,31 @@ func TestParseEmpty(t *testing.T) {
 	}
 }
 
+func TestParseTimestampedList(t *testing.T) {
+	output := "There are screens on:\n\t1234.sc-codex-work-aaaaaaaa\t(09/04/26 12:30:00)\t(Detached)\n\t5678.sc-claude-work-bbbbbbbb\t(2026-09-04 12:31:00)\t(Attached)\n2 Sockets in /tmp/screens.\n"
+	want := []Socket{{1234, "sc-codex-work-aaaaaaaa", Detached}, {5678, "sc-claude-work-bbbbbbbb", Attached}}
+	if got := ParseList(output); !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%+v want=%+v", got, want)
+	}
+	client := Client{Path: helperScript(t, "printf '%s' '"+output+"'")}
+	if got, err := client.List(context.Background()); err != nil || !reflect.DeepEqual(got, want) {
+		t.Fatalf("got=%+v err=%v", got, err)
+	}
+}
+
+func TestClientListRejectsAmbiguousOrPartialOutput(t *testing.T) {
+	for _, output := range []string{
+		"", "unexpected screen output", "There is a screen on:\n1 Socket in /tmp/screens.",
+		"1234.sc-work (Unknown)", "1234.sc-work (Detached)\n5678.sc-other (Unknown)",
+		"999999999999999999999999.sc-work (Detached)",
+	} {
+		client := Client{Path: helperScript(t, "printf '%s' '"+output+"'")}
+		if _, err := client.List(context.Background()); err == nil {
+			t.Fatalf("ambiguous output accepted: %q", output)
+		}
+	}
+}
+
 func TestClientListAcceptsOldScreenNoSocketsExit(t *testing.T) {
 	client := Client{Path: helperScript(t, `printf '%s\n' 'No Sockets found in /tmp/screens.'; exit 1`)}
 	sockets, err := client.List(context.Background())

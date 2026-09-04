@@ -411,8 +411,8 @@ func TestReconcileDoesNotResurrectStoppingOrTerminalSessions(t *testing.T) {
 	}}
 	manager := Manager{Store: store, Screen: fake, Now: func() time.Time { return now }}
 	records, errs := manager.List(context.Background())
-	if len(errs) != 0 {
-		t.Fatal(errs)
+	if len(errs) != 1 || !strings.Contains(errs[0].Error(), "still has a Screen socket") {
+		t.Fatalf("terminal socket must block destructive cleanup: %v", errs)
 	}
 	if got := findRecord(t, records, stopping.ID); got.State != StateStopping || got.ScreenPID != 0 {
 		t.Fatalf("stopping resurrected: %+v", got)
@@ -540,7 +540,7 @@ func TestStoreDeleteDefensivelyRemovesLaunch(t *testing.T) {
 	}
 }
 
-func TestManagerStopBestEffortFinalizesOnScreenError(t *testing.T) {
+func TestManagerStopFailureRemainsPending(t *testing.T) {
 	store := NewStore(t.TempDir())
 	now := time.Now().UTC()
 	record, _ := NewRecord("Stop", "claude", t.TempDir(), now.Add(-time.Minute))
@@ -550,18 +550,29 @@ func TestManagerStopBestEffortFinalizesOnScreenError(t *testing.T) {
 	}
 	fake := &fakeScreen{
 		sockets: []screenpkg.Socket{{PID: 12, Name: record.ScreenName, Status: screenpkg.Detached}},
-		stopErr: errors.New("socket disappeared"),
+		stopErr: errors.New("control failed"),
 	}
 	manager := Manager{Store: store, Screen: fake, Now: func() time.Time { return now }}
-	if err := manager.Stop(context.Background(), record.ID); err == nil || !strings.Contains(err.Error(), "socket disappeared") {
+	if err := manager.Stop(context.Background(), record.ID); err == nil || !strings.Contains(err.Error(), "control failed") {
 		t.Fatalf("err=%v", err)
 	}
 	loaded, err := store.Load(record.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.State != StateStopped || loaded.EndReason != "stopped-by-manager" {
+	if loaded.State != StateStopping || !loaded.Active() || loaded.EndedAt != nil || loaded.EndReason != "stopped-by-manager" {
 		t.Fatalf("record=%+v", loaded)
+	}
+	if n, err := manager.Prune(context.Background(), nil, 0, true); err != nil || n != 0 {
+		t.Fatalf("failed stop pruned a live session: n=%d err=%v", n, err)
+	}
+	fake.stopErr = nil
+	if err := manager.Stop(context.Background(), record.ID); err != nil {
+		t.Fatalf("stop retry: %v", err)
+	}
+	loaded, err = store.Load(record.ID)
+	if err != nil || loaded.Active() || loaded.State != StateStopped {
+		t.Fatalf("retry did not finish: %+v err=%v", loaded, err)
 	}
 }
 

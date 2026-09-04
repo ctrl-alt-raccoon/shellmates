@@ -27,6 +27,7 @@ type Manager struct {
 	BinaryPath     string
 	Now            func() time.Time
 	StartTimeout   time.Duration
+	StopTimeout    time.Duration
 	AdmitCreate    func(context.Context) error
 	BeforeAttach   func(Record)
 	AdmissionHooks stateroot.Hooks
@@ -86,11 +87,13 @@ func (m Manager) Create(ctx context.Context, topic, backend, cwd string, args []
 		}
 	}
 	request := LaunchRequest{SchemaVersion: 1, SessionID: record.ID, Args: append([]string(nil), args...)}
-	if err := m.Store.SaveLaunch(request); err != nil {
+	// Publish the record first so concurrent cleanup never sees an orphan launch
+	// request in the gap between the two writes. Screen is started only afterward.
+	if err := m.Store.Save(record); err != nil {
 		return Record{}, errors.Join(err, admission.Release())
 	}
-	if err := m.Store.Save(record); err != nil {
-		_ = m.Store.DeleteLaunch(record.ID)
+	if err := m.Store.SaveLaunch(request); err != nil {
+		_, _ = m.Store.FailLaunch(record.ID, "prepare launch request failed", m.now())
 		return Record{}, errors.Join(err, admission.Release())
 	}
 	if err := m.Screen.Start(ctx, record.ScreenName, truncate(record.Topic, 40), record.CWD, m.BinaryPath, record.ID); err != nil {
@@ -161,17 +164,60 @@ func (m Manager) Stop(ctx context.Context, selector string) error {
 		return err
 	}
 	if !record.Active() {
-		return errors.New("session is already stopped")
-	}
-	if _, err := m.Store.requestStop(record.ID, m.now()); err != nil {
+		// Older releases could record a terminal state before Screen exited.
+		// An explicit stop may still shut down that exact surviving socket.
+		sockets, probeErr := m.Screen.List(ctx)
+		if probeErr != nil {
+			return probeErr
+		}
+		found := false
+		for _, socket := range sockets {
+			found = found || socket.Name == record.ScreenName
+		}
+		if !found {
+			return errors.New("session is already stopped")
+		}
+	} else if _, err := m.Store.requestStop(record.ID, m.now()); err != nil {
 		return err
 	}
 	stopErr := m.Screen.Stop(ctx, record.ScreenName)
-	_, updateErr := m.Store.stop(record.ID, m.now(), "stopped-by-manager")
-	if updateErr != nil {
-		return updateErr
+	if err := m.confirmStopped(ctx, record.ScreenName, stopErr == nil); err != nil {
+		// A control error is not proof of exit. Keep the stop intent active so
+		// retries remain possible and prune/uninstall cannot orphan the session.
+		return errors.Join(stopErr, err)
 	}
-	return stopErr
+	_, updateErr := m.Store.stop(record.ID, m.now(), "stopped-by-manager")
+	return errors.Join(stopErr, updateErr)
+}
+
+func (m Manager) confirmStopped(ctx context.Context, name string, wait bool) error {
+	timeout := m.StopTimeout
+	if timeout <= 0 {
+		timeout = defaultStartTimeout
+	}
+	probeCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	for {
+		sockets, err := m.Screen.List(probeCtx)
+		if err != nil {
+			return fmt.Errorf("cannot confirm session exit: %w", err)
+		}
+		found := false
+		for _, socket := range sockets {
+			found = found || socket.Name == name
+		}
+		if !found {
+			return nil
+		}
+		if !wait {
+			return errors.New("session is still present in Screen; stop remains pending")
+		}
+		select {
+		case <-probeCtx.Done():
+			return fmt.Errorf("session stop remains unconfirmed: %w", probeCtx.Err())
+		case <-time.After(25 * time.Millisecond):
+		}
+	}
 }
 
 func (m Manager) Prune(ctx context.Context, selectors []string, olderThan time.Duration, allStopped bool) (int, error) {
@@ -179,8 +225,8 @@ func (m Manager) Prune(ctx context.Context, selectors []string, olderThan time.D
 		return 0, errors.New("prune age cannot be negative")
 	}
 	records, warnings := m.List(ctx)
-	if len(warnings) > 0 && len(records) == 0 {
-		return 0, warnings[0]
+	if len(warnings) > 0 {
+		return 0, errors.Join(warnings...)
 	}
 	selected := map[string]bool{}
 	for _, selector := range selectors {
@@ -224,10 +270,10 @@ func (m Manager) reconcile(records []Record, sockets []screenpkg.Socket) ([]Reco
 		changed := false
 		if exists {
 			if record.State == StateStopping {
-				m.bestEffortStop(context.Background(), record.ScreenName)
 				continue
 			}
 			if !record.Active() {
+				errs = append(errs, fmt.Errorf("terminal session %s still has a Screen socket; use stop to retry shutdown before cleanup", record.ID))
 				continue
 			}
 			changed = record.State != StateRunning || record.ScreenPID != socket.PID || record.ScreenStatus != ScreenStatus(socket.Status)

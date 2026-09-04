@@ -9,6 +9,11 @@ import (
 )
 
 const nonBlockingOpenFlag = 0
+const directoryOpenFlag = 0
+
+func mkdirAt(directory *os.File, name string, mode os.FileMode) error {
+	return errors.New("descriptor-relative directory creation is unsupported on this platform")
+}
 
 func openDirectoryAtPath(path string) (*os.File, error) {
 	return os.Open(path)

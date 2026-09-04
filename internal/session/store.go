@@ -10,6 +10,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/ctrl-alt-raccoon/sclaude/internal/fssecure"
 )
 
 type Store struct {
@@ -17,7 +19,14 @@ type Store struct {
 	SessionsDir string
 	LaunchDir   string
 	LockPath    string
+	dirs        *storeDirectories
 }
+
+type storeDirectories struct {
+	root, sessions, launch *fssecure.Directory
+}
+
+const maxSessionFileSize = 4 << 20
 
 var ErrSessionNotRunnable = errors.New("session is no longer runnable")
 
@@ -31,23 +40,19 @@ func NewStore(stateRoot string) Store {
 }
 
 func (s Store) Ensure() error {
-	for _, dir := range []string{s.Root, s.SessionsDir, s.LaunchDir} {
-		if err := os.MkdirAll(dir, 0o700); err != nil {
-			return err
-		}
-		if err := os.Chmod(dir, 0o700); err != nil {
-			return err
-		}
+	opened, err := s.open(true)
+	if err != nil {
+		return err
 	}
-	return nil
+	return opened.dirs.close()
 }
 
 func (s Store) Save(record Record) error {
 	if err := validateRecord(record); err != nil {
 		return err
 	}
-	return s.withLock(func() error {
-		return writeJSONAtomic(s.recordPath(record.ID), record)
+	return s.withLock(func(s Store) error {
+		return writeJSONAtomic(s.dirs.sessions, record.ID+".json", record)
 	})
 }
 
@@ -59,7 +64,7 @@ func (s Store) Update(id string, update func(*Record) error) (Record, error) {
 		return Record{}, err
 	}
 	var result Record
-	err := s.withLock(func() error {
+	err := s.withLock(func(s Store) error {
 		record, err := s.loadUnlocked(id)
 		if err != nil {
 			return err
@@ -70,7 +75,7 @@ func (s Store) Update(id string, update func(*Record) error) (Record, error) {
 		if err := validateRecord(record); err != nil {
 			return err
 		}
-		if err := writeJSONAtomic(s.recordPath(id), record); err != nil {
+		if err := writeJSONAtomic(s.dirs.sessions, id+".json", record); err != nil {
 			return err
 		}
 		result = record
@@ -237,7 +242,7 @@ func (s Store) lifecycleUpdate(id string, deleteLaunch bool, update func(*Record
 		return Record{}, err
 	}
 	var result Record
-	err := s.withLock(func() error {
+	err := s.withLock(func(s Store) error {
 		record, err := s.loadUnlocked(id)
 		if err != nil {
 			return err
@@ -250,12 +255,12 @@ func (s Store) lifecycleUpdate(id string, deleteLaunch bool, update func(*Record
 			if err := validateRecord(record); err != nil {
 				return err
 			}
-			if err := writeJSONAtomic(s.recordPath(id), record); err != nil {
+			if err := writeJSONAtomic(s.dirs.sessions, id+".json", record); err != nil {
 				return err
 			}
 		}
 		if deleteLaunch {
-			if err := removeIfExists(s.launchPath(id)); err != nil {
+			if err := removeRegular(s.dirs.launch, id+".json"); err != nil {
 				return err
 			}
 		}
@@ -269,11 +274,16 @@ func (s Store) Load(id string) (Record, error) {
 	if err := validateID(id); err != nil {
 		return Record{}, err
 	}
-	return s.loadUnlocked(id)
+	opened, err := s.open(false)
+	if err != nil {
+		return Record{}, err
+	}
+	defer opened.dirs.close()
+	return opened.loadUnlocked(id)
 }
 
 func (s Store) loadUnlocked(id string) (Record, error) {
-	data, err := os.ReadFile(s.recordPath(id))
+	data, _, err := readPrivateRegular(s.dirs.sessions, id+".json")
 	if err != nil {
 		return Record{}, err
 	}
@@ -291,10 +301,16 @@ func (s Store) loadUnlocked(id string) (Record, error) {
 }
 
 func (s Store) List() ([]Record, []error) {
-	entries, err := os.ReadDir(s.SessionsDir)
+	opened, err := s.open(false)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
 	}
+	if err != nil {
+		return nil, []error{err}
+	}
+	defer opened.dirs.close()
+	s = opened
+	entries, err := s.dirs.sessions.File().ReadDir(-1)
 	if err != nil {
 		return nil, []error{err}
 	}
@@ -331,8 +347,8 @@ func (s Store) SaveLaunch(request LaunchRequest) error {
 		return fmt.Errorf("unsupported launch request schema %d", request.SchemaVersion)
 	}
 	request.Args = append([]string(nil), request.Args...)
-	return s.withLock(func() error {
-		return writeJSONAtomic(s.launchPath(request.SessionID), request)
+	return s.withLock(func(s Store) error {
+		return writeJSONAtomic(s.dirs.launch, request.SessionID+".json", request)
 	})
 }
 
@@ -344,31 +360,24 @@ func (s Store) ConsumeLaunch(id string) (LaunchRequest, error) {
 		return LaunchRequest{}, err
 	}
 	var request LaunchRequest
-	err := s.withLock(func() error {
-		path := s.launchPath(id)
-		claimed, err := os.CreateTemp(s.LaunchDir, ".consume-*")
+	err := s.withLock(func(s Store) error {
+		token, err := randomID()
 		if err != nil {
 			return err
 		}
-		claimPath := claimed.Name()
-		if err := claimed.Close(); err != nil {
-			_ = os.Remove(claimPath)
+		claimName := ".consume-" + token
+		if err := s.dirs.launch.RenameNoReplace(id+".json", claimName); err != nil {
 			return err
 		}
-		if err := os.Remove(claimPath); err != nil {
+		// All claim creation/consumption holds the store lock. Any claim seen
+		// by the next lock holder is therefore abandoned, including old names.
+		data, _, readErr := readPrivateRegular(s.dirs.launch, claimName)
+		if err := errors.Join(readErr, s.dirs.launch.Remove(claimName)); err != nil {
 			return err
 		}
-		if err := os.Rename(path, claimPath); err != nil {
-			return err
-		}
-		defer os.Remove(claimPath)
 
-		data, err := os.ReadFile(claimPath)
-		if err != nil {
-			return err
-		}
 		if err := json.Unmarshal(data, &request); err != nil {
-			return err
+			return errors.New("invalid launch request JSON")
 		}
 		if request.SchemaVersion != 1 {
 			return fmt.Errorf("unsupported launch request schema %d", request.SchemaVersion)
@@ -386,8 +395,8 @@ func (s Store) DeleteLaunch(id string) error {
 	if err := validateID(id); err != nil {
 		return err
 	}
-	return s.withLock(func() error {
-		return removeIfExists(s.launchPath(id))
+	return s.withLock(func(s Store) error {
+		return removeRegular(s.dirs.launch, id+".json")
 	})
 }
 
@@ -396,8 +405,8 @@ func (s Store) DeleteLaunch(id string) error {
 // consume its one-use request, so those requests are preserved.
 func (s Store) CleanupLaunches() []error {
 	var errs []error
-	err := s.withLock(func() error {
-		entries, err := os.ReadDir(s.LaunchDir)
+	err := s.withLock(func(s Store) error {
+		entries, err := s.dirs.launch.File().ReadDir(-1)
 		if err != nil {
 			return err
 		}
@@ -418,7 +427,7 @@ func (s Store) CleanupLaunches() []error {
 				errs = append(errs, fmt.Errorf("%s: %w", entry.Name(), loadErr))
 				continue
 			}
-			if err := removeIfExists(s.launchPath(id)); err != nil {
+			if err := removeRegular(s.dirs.launch, id+".json"); err != nil {
 				errs = append(errs, fmt.Errorf("%s: %w", entry.Name(), err))
 			}
 		}
@@ -437,20 +446,30 @@ func (s Store) Delete(record Record) error {
 	if err := validateID(record.ID); err != nil {
 		return err
 	}
-	return s.withLock(func() error {
-		if err := removeIfExists(s.launchPath(record.ID)); err != nil {
+	return s.withLock(func(s Store) error {
+		current, err := s.loadUnlocked(record.ID)
+		if err != nil {
 			return err
 		}
-		return os.Remove(s.recordPath(record.ID))
+		if current.Active() {
+			return errors.New("cannot prune an active session")
+		}
+		if err := removeRegular(s.dirs.launch, record.ID+".json"); err != nil {
+			return err
+		}
+		return removeRegular(s.dirs.sessions, record.ID+".json")
 	})
 }
 
-func removeIfExists(path string) error {
-	err := os.Remove(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
+func removeRegular(directory *fssecure.Directory, name string) error {
+	info, err := directory.InspectRegular(name)
+	if err != nil || info == nil {
+		return err
 	}
-	return err
+	if err := privateFile(info); err != nil {
+		return err
+	}
+	return directory.RemoveRegular(name, info, nil)
 }
 
 func (s Store) Select(selector string, records []Record) (Record, error) {
@@ -495,15 +514,25 @@ func (s Store) launchPath(id string) string {
 	return filepath.Join(s.LaunchDir, id+".json")
 }
 
-func (s Store) withLock(fn func() error) error {
-	if err := s.Ensure(); err != nil {
+func (s Store) withLock(fn func(Store) error) error {
+	opened, err := s.open(true)
+	if err != nil {
 		return err
 	}
-	lock, err := os.OpenFile(s.LockPath, os.O_CREATE|os.O_RDWR, 0o600)
+	defer opened.dirs.close()
+	s = opened
+	lock, err := s.dirs.root.OpenFile("lock", os.O_CREATE|os.O_RDWR|syscall.O_NONBLOCK, 0o600)
 	if err != nil {
 		return err
 	}
 	defer lock.Close()
+	info, err := lock.Stat()
+	if err != nil {
+		return err
+	}
+	if err := ownedRegular(info); err != nil {
+		return fmt.Errorf("unsafe session lock: %w", err)
+	}
 	if err := lock.Chmod(0o600); err != nil {
 		return err
 	}
@@ -511,25 +540,41 @@ func (s Store) withLock(fn func() error) error {
 		return err
 	}
 	defer syscall.Flock(int(lock.Fd()), syscall.LOCK_UN)
-	return fn()
-}
-
-func writeJSONAtomic(path string, value any) error {
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o700); err != nil {
+	current, err := s.dirs.root.InspectRegular("lock")
+	if err != nil || current == nil || !os.SameFile(info, current) {
+		return errors.Join(errors.New("session lock changed while acquiring it"), err)
+	}
+	if err := s.revalidate(); err != nil {
 		return err
 	}
+	if err := s.cleanupTemporaries(); err != nil {
+		return err
+	}
+	if err := fn(s); err != nil {
+		return err
+	}
+	return s.revalidate()
+}
+
+func writeJSONAtomic(dir *fssecure.Directory, name string, value any) error {
 	data, err := json.MarshalIndent(value, "", "  ")
 	if err != nil {
 		return err
 	}
 	data = append(data, '\n')
-	tmp, err := os.CreateTemp(dir, ".sclaude-*")
+	if len(data) > maxSessionFileSize {
+		return errors.New("session document exceeds size limit")
+	}
+	token, err := randomID()
 	if err != nil {
 		return err
 	}
-	name := tmp.Name()
-	defer os.Remove(name)
+	temporaryName := ".sclaude-" + token
+	tmp, err := dir.OpenFile(temporaryName, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return err
+	}
+	defer dir.Unlink(temporaryName)
 	if err := tmp.Chmod(0o600); err != nil {
 		tmp.Close()
 		return err
@@ -545,19 +590,41 @@ func writeJSONAtomic(path string, value any) error {
 	if err := tmp.Close(); err != nil {
 		return err
 	}
-	if err := os.Rename(name, path); err != nil {
+	if info, err := dir.InspectRegular(name); err != nil {
+		return err
+	} else if info != nil {
+		if err := privateFile(info); err != nil {
+			return err
+		}
+	}
+	if err := dir.Rename(temporaryName, name); err != nil {
 		return err
 	}
-	return syncDir(dir)
+	return dir.Sync()
 }
 
-func syncDir(path string) error {
-	dir, err := os.Open(path)
+func readPrivateRegular(directory *fssecure.Directory, name string) ([]byte, os.FileInfo, error) {
+	info, err := directory.InspectRegular(name)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
-	defer dir.Close()
-	return dir.Sync()
+	if info == nil {
+		return nil, nil, os.ErrNotExist
+	}
+	if err := privateFile(info); err != nil {
+		return nil, nil, err
+	}
+	data, after, err := directory.ReadRegularLimit(name, maxSessionFileSize)
+	if err != nil {
+		return nil, after, err
+	}
+	if !os.SameFile(info, after) {
+		return nil, nil, errors.New("session file changed while opening")
+	}
+	if err := privateFile(after); err != nil {
+		return nil, nil, err
+	}
+	return data, after, nil
 }
 
 func validateRecord(record Record) error {

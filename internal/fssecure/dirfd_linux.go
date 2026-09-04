@@ -11,6 +11,10 @@ func rawOpenat(directory int, name string, flags int, mode uint32) (int, error) 
 	return syscall.Openat(directory, name, flags, mode)
 }
 
+func rawMkdirat(directory int, name string, mode uint32) error {
+	return syscall.Mkdirat(directory, name, mode)
+}
+
 func rawRenameat(oldDirectory int, oldName string, newDirectory int, newName string) error {
 	return syscall.Renameat(oldDirectory, oldName, newDirectory, newName)
 }

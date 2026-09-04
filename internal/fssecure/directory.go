@@ -129,7 +129,47 @@ func (directory *Directory) OpenFile(name string, flags int, mode os.FileMode) (
 	return openFileAt(directory.file, name, flags, mode)
 }
 
+// OpenChild anchors child-directory creation and opening to this directory's
+// descriptor. Neither a replaced parent path nor a symlink child redirects it.
+func (directory *Directory) OpenChild(name string, create bool, mode os.FileMode) (*Directory, error) {
+	if err := validateName(name); err != nil {
+		return nil, err
+	}
+	if directory == nil || directory.file == nil {
+		return nil, errors.New("directory is closed")
+	}
+	if err := directory.Revalidate(directory.path); err != nil {
+		return nil, err
+	}
+	if create {
+		if err := mkdirAt(directory.file, name, mode); err != nil && !errors.Is(err, os.ErrExist) {
+			return nil, err
+		}
+	}
+	file, err := directory.OpenFile(name, os.O_RDONLY|directoryOpenFlag, 0)
+	if err != nil {
+		return nil, err
+	}
+	info, err := file.Stat()
+	if err != nil || !info.IsDir() {
+		_ = file.Close()
+		return nil, errors.Join(errors.New("child must be a non-symlink directory"), err)
+	}
+	child := &Directory{path: filepath.Join(directory.path, name), file: file, info: info}
+	if err := errors.Join(directory.Revalidate(directory.path), child.Revalidate(child.path)); err != nil {
+		_ = child.Close()
+		return nil, err
+	}
+	return child, nil
+}
+
 func (directory *Directory) ReadRegular(name string) ([]byte, os.FileInfo, error) {
+	return directory.ReadRegularLimit(name, -1)
+}
+
+// ReadRegularLimit is ReadRegular with a byte ceiling; negative limits are
+// unbounded. Non-regular files are rejected before any read (including FIFOs).
+func (directory *Directory) ReadRegularLimit(name string, limit int64) ([]byte, os.FileInfo, error) {
 	file, err := directory.OpenFile(
 		name,
 		os.O_RDONLY|nonBlockingOpenFlag,
@@ -146,7 +186,11 @@ func (directory *Directory) ReadRegular(name string) ([]byte, os.FileInfo, error
 	if !before.Mode().IsRegular() {
 		return nil, nil, errors.New("target is not a regular non-symlink file")
 	}
-	data, err := io.ReadAll(file)
+	var reader io.Reader = file
+	if limit >= 0 {
+		reader = io.LimitReader(file, limit+1)
+	}
+	data, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -156,6 +200,9 @@ func (directory *Directory) ReadRegular(name string) ([]byte, os.FileInfo, error
 	}
 	if !sameStableFileState(before, after) {
 		return nil, nil, errors.New("target changed while reading")
+	}
+	if limit >= 0 && int64(len(data)) > limit {
+		return nil, after, errors.New("file exceeds size limit")
 	}
 	return data, after, nil
 }

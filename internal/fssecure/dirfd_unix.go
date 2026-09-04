@@ -10,6 +10,11 @@ import (
 )
 
 const nonBlockingOpenFlag = syscall.O_NONBLOCK
+const directoryOpenFlag = syscall.O_DIRECTORY
+
+func mkdirAt(directory *os.File, name string, mode os.FileMode) error {
+	return rawMkdirat(int(directory.Fd()), name, uint32(mode.Perm()))
+}
 
 func openDirectoryAtPath(path string) (*os.File, error) {
 	fd, err := syscall.Open(path, syscall.O_RDONLY|syscall.O_DIRECTORY|syscall.O_CLOEXEC|syscall.O_NOFOLLOW, 0)

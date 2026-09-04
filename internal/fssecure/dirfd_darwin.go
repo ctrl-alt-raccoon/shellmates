@@ -12,11 +12,24 @@ const (
 	sysRenameat    = 465
 	sysLinkat      = 471
 	sysUnlinkat    = 472
+	sysMkdirat     = 475
 	sysRenameatxNP = 488
 
 	renameSwap = 0x00000002
 	renameExcl = 0x00000004
 )
+
+func rawMkdirat(directory int, name string, mode uint32) error {
+	namePointer, err := syscall.BytePtrFromString(name)
+	if err != nil {
+		return err
+	}
+	_, _, errno := syscall.Syscall(sysMkdirat, uintptr(directory), uintptr(unsafe.Pointer(namePointer)), uintptr(mode))
+	if errno != 0 {
+		return errno
+	}
+	return nil
+}
 
 func rawOpenat(directory int, name string, flags int, mode uint32) (int, error) {
 	namePointer, err := syscall.BytePtrFromString(name)

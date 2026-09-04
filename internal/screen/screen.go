@@ -1,7 +1,6 @@
 package screen
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -38,8 +37,9 @@ type Client struct {
 }
 
 var (
-	socketLine = regexp.MustCompile(`^\s*([0-9]+)\.([^\s]+)\s+\((Attached|Detached)\)\s*$`)
-	screenName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$`)
+	socketLine      = regexp.MustCompile(`^\s*([0-9]+)\.([^\s]+)\s+(?:\([^()]+\)\s+)?\((Attached|Detached)\)\s*$`)
+	socketCandidate = regexp.MustCompile(`^\s*[0-9]+\.[^\s]+`)
+	screenName      = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$`)
 )
 
 func (c Client) List(ctx context.Context) ([]Socket, error) {
@@ -47,18 +47,24 @@ func (c Client) List(ctx context.Context) ([]Socket, error) {
 		return nil, errors.New("screen path is required")
 	}
 	cmd := exec.CommandContext(ctx, c.Path, "-ls")
+	cmd.Env = append(os.Environ(), "LC_ALL=C")
 	output, err := cmd.CombinedOutput()
+	for _, line := range strings.Split(string(output), "\n") {
+		if socketCandidate.MatchString(line) && len(ParseList(line)) != 1 {
+			return nil, errors.New("screen -ls returned an unrecognized socket line; liveness is unknown")
+		}
+	}
 	sockets := ParseList(string(output))
 	if len(sockets) > 0 {
 		return sockets, nil
 	}
-	if err != nil && bytes.Contains(bytes.ToLower(output), []byte("no sockets found")) {
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(output))), "no sockets found in ") {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, commandError("screen -ls", err, output)
 	}
-	return nil, nil
+	return nil, errors.New("screen -ls did not confirm any sockets or their absence; liveness is unknown")
 }
 
 // ParseList accepts the socket lines emitted by old and current GNU Screen
