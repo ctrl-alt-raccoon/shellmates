@@ -1,6 +1,6 @@
 # Status checkpoint
 
-Updated: 2026-07-20
+Updated: 2026-09-04
 
 ## Completed tasks
 
@@ -181,7 +181,7 @@ Redo harness notes: one status capture initially used the bash-only `PIPESTATUS`
 
 2026-09-04: the user authorized the audit repairs followed by native Codex/scodex support, including backend-specific configuration and argument semantics. This is a new implementation task after the historical July freeze. Publication remains out of scope. New harness/house rules await the user's forthcoming instructions.
 
-Lifecycle/storage implementation is complete at the focused-gate checkpoint:
+Storage hardening and the initial Screen-level lifecycle fixes are committed as `6fbcbe3`. Their focused gate passed; the stronger native integration check below subsequently exposed a remaining end-to-end shutdown defect, so lifecycle reliability is not yet complete:
 
 - Screen accepts legacy and timestamped listings and reports ambiguous/partial output instead of declaring absence.
 - Failed/unconfirmed stops remain active `stopping` records; explicit retry works. Terminal records with surviving sockets block prune/uninstall and can be stopped explicitly without resurrecting their terminal state.
@@ -197,20 +197,49 @@ Three-round focused verification cap declared before implementation. Using `/pri
 
 `gofmt` and `git diff --check` passed. No live backend/account/service state was used. The final complete matrix is reserved for the native Codex implementation checkpoint.
 
+### Native Codex draft: focused gate blocked
+
+The uncommitted native implementation adds:
+
+- Native `codex` backend and `scodex` invocation-name dispatch, with exact backend argv and inherited environment forwarding, no Claude proxy overlays, and backend-specific interactive/noninteractive classification. In particular Codex `-p` selects a profile; it is not Claude print mode. `exec`, `review`, utility commands, help, and version stay direct, including under `SCLAUDE_FORCE`. Unknown options are delegated unchanged.
+- Runtime schema 2 with explicit enabled backends, `real_codex`, Codex-only setup/doctor, optional `--codex-executable`, and strict contradictory-option checks. Schema-1 runtime files still load without rewriting. Native state and authentication remain owned by Codex; wrapper setup never reads or migrates `~/.codex/`.
+- Native resume pickers instead of treating Screen record IDs as conversation IDs. README/SECURITY now distinguish native Codex, managed Claude proxy routing, optional Claude plugin tooling, and deliberate cross-provider resume.
+- Three-launcher installer schema 3 with schema-1/2 migration and schema-2 journal recovery. Existing launcher identities and unmanaged `scodex` collisions are preserved. Candidate-owned update handoff is tested locally. Rollback to pre-native releases is deliberately refused; rollback between native-capable releases is supported.
+- Regression tests for native setup, argument boundaries, stdio/exit forwarding, signals, launcher collision/rollback, candidate-owned migration, and opt-in real Screen lifecycle.
+- CI/release toolchain pinned to Go 1.26.8, with vulnerability and integration gates added. Go 1.26.8 ran successfully from a disposable cache; the Mac's default Go installation was not changed. The new vulnerability gate and complete cross-build matrix have NOT yet run.
+
+Native focused verification used `/private/tmp/sclaude-native-20260904.79kcft/check.sh`, Go 1.26.8, fresh HOME/XDG/Screen/TMPDIR for each command, and shared disposable Go caches (not user application state). The declared maximum was three rounds:
+
+1. `go test -count=1 ./internal/config ./internal/backend ./internal/app ./internal/setup ./internal/ui ./internal/session ./internal/screen` passed all seven packages, including setup 13.567s. Integration tests were not enabled in this round.
+2. `SCLAUDE_SCREEN_INTEGRATION=1 SCLAUDE_RELEASE_INTEGRATION=1 go test -race -count=1 ./internal/config ./internal/backend ./internal/app ./internal/setup ./internal/ui ./internal/session ./internal/screen` passed six packages; app failed a new integration assertion. That first failure was a test bug: unmarshalling into a reused slice retained omitted zero-value JSON fields from the previous running record. The test now decodes fresh records and uses the correct `prune --all-stopped` option. No product metadata fix was needed. Candidate-owned installer migration and real bare Screen lifecycle passed.
+3. `SCLAUDE_SCREEN_INTEGRATION=1 SCLAUDE_RELEASE_INTEGRATION=1 go test -race -count=1 ./internal/app ./internal/setup ./internal/session ./internal/screen` passed setup 16.052s, session 2.342s, and screen 4.662s. App failed `TestNativeCodexScreenLifecycle` at `native_integration_test.go:147`: `fake backend survived stop`.
+
+Final-round survivor (high priority; no fourth fix/check round started):
+
+- On this Mac's `/usr/bin/screen`, manager stop removes the Screen socket and writes a stopped record while the login -> runner -> backend process chain can remain alive. Read-only process inspection confirmed the fixture backends were live (`S+`), not zombies, after socket removal: runner/backend 94910/94911 from round 2 and 95109/95110 from round 3, under login processes 94909 and 95108. This is not proved to be Codex-specific; no real vendor backend was invoked. `runSession` currently has no signal forwarding/shutdown protocol, and manager stop only confirms socket absence.
+- A follow-up bounded task must design reliable runner/backend shutdown and acknowledgement, preserve stop intent until that stronger condition is met, handle timeout/retry without unsafe PID-reuse signaling, and extend failure cleanup in the new integration test so it cannot leak its fixture if the socket disappears first. Merely weakening the integration assertion would hide the defect.
+- All six identified native fixture processes were confirmed absent after explicitly terminating only the two fake backends. The bare health-check test also left sleep-loop processes despite passing its socket-only assertion; its two process groups were identified by their exact fixture command/start times (23:49:40 and 23:50:23) and cleaned up separately. A matching older fixture predating these gates was left untouched. Future health checks need process-exit verification, not only socket verification. No pre-existing user Screen sessions or processes were stopped.
+
+Per `CLAUDE.md`'s three-round cap, native work is left uncommitted and explicitly unfinished. The final one-shot complete matrix has NOT started; full tests/race/vet, vulnerability scan, four-target builds, release checksums, and hosted CI remain unverified for this tree. No live setup, vendor login/inference, shell-profile edits, service changes, plugin execution, push, tag, or release occurred. The earlier audit file is preserved separately as the historical pre-fix snapshot.
+
+Cleanup: removed the three lifecycle-check roots and the native gate's four disposable state roots plus Go module/build caches (approximately 1 GB of regenerable data). Removal commands returned 0; the lifecycle roots were confirmed absent and the native root retains only its 4 KiB harness. The earlier 33 MiB audit artifact root remains intact.
+
 ## Remaining tasks
 
-1. Publish `main` only when separately authorized: GitHub repository metadata and topics, protected `release` environment, deploy-key addition, origin configuration, push, and CI wait. None has been performed.
-2. Do not create a tag or release; that remains explicitly unauthorized.
+1. Obtain direction for a fresh bounded repair of the final-round backend-shutdown survivor, then finish native Codex verification and its implementation checkpoint before the final complete matrix.
+2. Publish `main` only when separately authorized: GitHub repository metadata and topics, protected `release` environment, deploy-key addition, origin configuration, push, and CI wait. None has been performed.
+3. Do not create a tag or release; that remains explicitly unauthorized.
 
 ## Key decisions and constraints
 
 - `sclaude` routes to ordinary Claude Code/Anthropic; managed `sclaudex` keeps Claude Code as the harness and routes through CLIProxyAPI at `http://127.0.0.1:8317`.
+- Draft `scodex` runs native Codex, not Claude over the proxy. Do not deploy the draft until the lifecycle survivor and final matrix are resolved.
 - An existing external `claudex` remains opaque and is referenced only by a stable absolute path.
 - Prompts/backend arguments exist only in private one-use launch files and are never persisted in session records.
 - Automated verification uses temporary HOME/XDG roots and explicit localhost fixtures; it must not touch live OAuth, proxy, service, shell-profile, or credential state.
 - Never read or modify `~/.codex/`, inspect Claude credential/keychain storage, expose secrets, log users out, or automatically run system-level `sudo`.
 - Existing release assets must never be overwritten in place; fixes require a new release tag.
-- Local commits and the final verified push of `main` are authorized. Do not create a tag or publish a release.
+- Local implementation/status checkpoints are authorized. The historical July push authorization is not being exercised in this September repair task; no remote mutations without renewed direction. Do not create a tag or publish a release.
 - Create a local commit after each tracked task is completed and update this file at each boundary.
 - After each authorized complete matrix starts, only `STATUS.md` may change before its verification checkpoint commit.
 - Do not run another adversarial review. Remaining ideas belong in the backlog below.
@@ -220,4 +249,3 @@ Three-round focused verification cap declared before implementation. Using `/pri
 - Add local `actionlint` coverage in a future task if a trusted installation path is selected; do not block this task on installing it.
 - Consider automating GitHub attestation verification in the installer in a future release, with a separately reviewed trust model.
 - Low-severity review survivor: in the admission test's failure-only cleanup path, release admission and open the gate before draining the runner so a hypothetical future lock regression diagnoses quickly instead of burning the 30-second drain; passing runs are unaffected.
-- Document in README/SECURITY that resuming an existing Claude Code conversation under a different backend (for example continuing an Anthropic-backed session via a proxy-routed launcher) re-sends the prior transcript to the new provider; cross-backend resume should be a deliberate choice.
