@@ -1,6 +1,6 @@
 # Status checkpoint
 
-Updated: 2026-09-04
+Updated: 2026-09-05
 
 ## Completed tasks
 
@@ -224,16 +224,52 @@ Per `CLAUDE.md`'s three-round cap, native work is left uncommitted and explicitl
 
 Cleanup: removed the three lifecycle-check roots and the native gate's four disposable state roots plus Go module/build caches (approximately 1 GB of regenerable data). Removal commands returned 0; the lifecycle roots were confirmed absent and the native root retains only its 4 KiB harness. The earlier 33 MiB audit artifact root remains intact.
 
+### 2026-09-05: authorized bounded backend-shutdown pass
+
+The user authorized a fresh bounded pass and clarified that Linux over SSH is the principal deployment target. A maximum of three focused fix/check rounds was declared. No complete matrix or adversarial review started.
+
+Shutdown implementation in the working tree:
+
+- The runner claims shutdown responsibility under the store lock BEFORE spawning its backend. If stop wins that lock, a later runner cannot start a child. If the runner wins, exit acknowledgement is required even when startup subsequently fails.
+- New records gain `shutdown_protocol: 1` when claimed; `backend_exited` is published only after the owning runner waits for its child (or Start fails). A requested stop remains `stopping` until the backend acknowledgement AND Screen absence are confirmed.
+- The runner observes durable stop intent independently of the manager/SSH connection. It sends SIGTERM through the actual `os.Process` handle returned by Start and escalates to SIGKILL after two seconds; it still waits before acknowledging. The manager waits up to five seconds by default and preserves unconfirmed stop intent for retry. Persisted PIDs are never used as signaling authority.
+- SIGTERM/SIGHUP and canceled runner contexts trigger shutdown; Ctrl-C is left to the foreground backend, with the runner remaining alive to reap it. Foreground process groups and terminal I/O are not changed.
+- Once per second, the runner checks for confirmed Screen absence, covering the Mac login wrapper swallowing HUP. An ambiguous Screen probe alone does not trigger shutdown. Store-access failure initiates child shutdown but cannot forge a durable exit acknowledgement.
+- Reconciliation and direct store deletion refuse to treat missing sockets as proof of backend exit, including legacy records with unconfirmed process metadata. New and old uncertain records block prune/uninstall. Legacy runners or an uncatchably killed runner may still require manual recovery.
+- Doctor's indefinite shell/sleep loop was replaced with an exec'd terminal reader that exits on terminal EOF/hangup. Its real-Screen test now checks process exit as well as socket removal.
+- The native integration fixture now has its own stop-file/bounded-lifetime escape hatch, checks TTY input and survival after the creator returns, and tests both manager stop and externally removed Screen sockets. Unit tests cover acknowledgement ordering, timeout/retry, interrupted startup, missing sockets, legacy PIDs, graceful termination, ignored TERM/escalation, context cancellation, storage failures, and Ctrl-C semantics.
+
+Scope: this confirms exit of the directly launched backend, not arbitrary daemonized descendants. Custom/opaque launchers must exec their real backend or forward signals and wait. This boundary is explicit in README/SECURITY. No real vendor backend, credentials, or SSH server was used; SSH-relevant detach/independent-caller behavior was exercised locally, not an actual network disconnect.
+
+Focused gates used Go 1.26.8 and isolated state. Mac commands ran via `/private/tmp/sclaude-shutdown-20260905.naRRnX/check.sh`. Linux used a disposable Debian Bookworm/arm64 container, GNU Screen 4.9.0, user `nobody`, `--init`, no network during testing, a read-only project mount, and tmpfs HOME/XDG/cache. The official Go image and Screen/modules were obtained during separate test-image preparation; no Mac packages or services were changed.
+
+1. Round 1, both platforms: `SCLAUDE_SCREEN_INTEGRATION=1 go test -race -count=1 ./internal/session ./internal/app ./internal/screen`.
+   - Linux passed all three packages (session 1.505s, app 22.553s, screen 1.117s), including the real native/Screen lifecycle.
+   - Mac session 2.374s and screen 2.324s passed; app failed the new TTY-input fixture assertion, before manager stop. The fixture was corrected to select Screen window 0 explicitly and inject carriage return as Enter. No shutdown production code changed for this correction.
+2. Round 2, both platforms: `SCLAUDE_SCREEN_INTEGRATION=1 SCLAUDE_RELEASE_INTEGRATION=1 go test -race -count=1 ./internal/session ./internal/app ./internal/screen ./internal/setup`.
+   - Mac session 3.381s, app 11.524s, and screen 10.222s passed: the original live-backend leak no longer reproduced, both manager and socket-loss shutdown passed, and the health-check process exited. Setup failed `TestEnsureProxyConfigRemovesSpecialModeBits/setgid` before reaching the production assertion because the disposable root inherited group `wheel`, not the running user's group 20. The harness now sets the root to the caller's primary group before creating fresh state.
+   - Linux session 1.191s, app 43.070s, and screen 1.449s passed. Setup failed `TestRunWorkflowRejectsCustomExecutableBeforeProxyMutation`: expected `active brew --prefix`, got `resolve Homebrew executable: brew: executable file not found in $PATH`.
+3. Round 3, Mac: the same race command expanded with `./internal/config ./internal/backend ./internal/ui`. Session 3.354s, screen 16.878s, setup 26.645s, config 4.585s, backend 3.842s, and UI 3.234s passed. App failed `TestRunSessionStartsWhileCreatorHoldsStateRootAdmission` at `dispatch_test.go:448`: runner exited 143 before startup observation. The native integration and new shutdown tests did not report failures. No fourth round or silent full-matrix rerun was performed.
+
+Final-round fixture survivors, diagnosed read-only and NOT repaired after the cap:
+
+- The startup-admission test launches `_run-session` directly with no Screen session, but points its runtime at real `/usr/bin/screen`. Its slow-path execution now correctly trips the runner's missing-socket watchdog after one second. Keep the admission-lock contract; provide a synthetic Screen liveness fixture for the exact record, rather than weakening the production watchdog or shortening the test deadline.
+- The custom-Homebrew-executable workflow test creates a fake `brew` only on PATH. Production intentionally ignores PATH and resolves trusted `/opt/homebrew/bin/brew` or `/usr/local/bin/brew`, so the test accidentally relies on the Mac's installed Homebrew and fails on Linux without it. Its no-proxy-mutation assertion remains important. Adapt the test's trusted-prefix seam/expected fail-closed unavailable case without installing Homebrew on Linux or relaxing production executable trust.
+
+The shutdown implementation and earlier native draft remain uncommitted because the broader focused suite is not green. The original end-to-end leak has passing real-Screen regression evidence on BOTH platforms, but this is not a claim that all verification is complete. Full tests/race/vet, vulnerability scan, cross-build/release assets, hosted CI, and final verification checkpoint remain pending. `gofmt` and `git diff --check` passed. No live account, vendor inference, user Screen session, shell profile, plugin, remote repository, tag, or release was mutated.
+
+Cleanup for this pass: both disposable Linux containers removed themselves; no matching Mac fixture backend/runner remained in the scoped process check. Removed the exact unused test image `sclaude-shutdown-check:20260905-narrnx` and newly pulled `golang:1.26.8-bookworm` tag (base digest `sha256:9fdc884aacc3bec89b20ffc69f4bb369c78210e3e4f600387b5128b12c199f81`), without global Docker pruning. Removed approximately 584 MiB of disposable Mac caches and three state roots. Every removal returned 0. The small harness/Dockerfile/module-manifest recipe remains under the named temporary root for reproduction; prior audit evidence remains unchanged.
+
 ## Remaining tasks
 
-1. Obtain direction for a fresh bounded repair of the final-round backend-shutdown survivor, then finish native Codex verification and its implementation checkpoint before the final complete matrix.
+1. Repair the two final-round test-fixture survivors in a newly authorized bounded pass, then finish native Codex/shutdown verification and its implementation checkpoint before the final complete matrix. Do not weaken the new shutdown or executable-trust checks to make fixtures pass.
 2. Publish `main` only when separately authorized: GitHub repository metadata and topics, protected `release` environment, deploy-key addition, origin configuration, push, and CI wait. None has been performed.
 3. Do not create a tag or release; that remains explicitly unauthorized.
 
 ## Key decisions and constraints
 
 - `sclaude` routes to ordinary Claude Code/Anthropic; managed `sclaudex` keeps Claude Code as the harness and routes through CLIProxyAPI at `http://127.0.0.1:8317`.
-- Draft `scodex` runs native Codex, not Claude over the proxy. Do not deploy the draft until the lifecycle survivor and final matrix are resolved.
+- Draft `scodex` runs native Codex, not Claude over the proxy. The real shutdown regression passes on Mac and Linux; do not deploy the draft until the remaining fixture failures and final matrix are resolved.
 - An existing external `claudex` remains opaque and is referenced only by a stable absolute path.
 - Prompts/backend arguments exist only in private one-use launch files and are never persisted in session records.
 - Automated verification uses temporary HOME/XDG roots and explicit localhost fixtures; it must not touch live OAuth, proxy, service, shell-profile, or credential state.
