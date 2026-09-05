@@ -17,6 +17,7 @@ import (
 
 const (
 	defaultStartTimeout = 2 * time.Second
+	defaultStopTimeout  = 5 * time.Second
 	startingGrace       = 2 * time.Second
 	lastSeenWriteEvery  = 30 * time.Second
 )
@@ -174,20 +175,74 @@ func (m Manager) Stop(ctx context.Context, selector string) error {
 		for _, socket := range sockets {
 			found = found || socket.Name == record.ScreenName
 		}
-		if !found {
+		if !found && !record.ExitUnconfirmed() {
 			return errors.New("session is already stopped")
 		}
-	} else if _, err := m.Store.requestStop(record.ID, m.now()); err != nil {
-		return err
+	} else {
+		record, err = m.Store.requestStop(record.ID, m.now())
+		if err != nil {
+			return err
+		}
 	}
-	stopErr := m.Screen.Stop(ctx, record.ScreenName)
-	if err := m.confirmStopped(ctx, record.ScreenName, stopErr == nil); err != nil {
+	// New runners watch the durable stop intent. Leave Screen and its terminal
+	// alive while the runner terminates and waits for the backend. Old runners
+	// get the legacy Screen hangup, but absence still cannot substitute for exit.
+	stopCtx, cancel := context.WithTimeout(ctx, m.stopTimeout())
+	defer cancel()
+	var stopErr error
+	if record.ShutdownProtocol == 1 {
+		if err := m.waitForBackendExit(stopCtx, record.ID); err != nil {
+			return err
+		}
+	} else {
+		stopErr = m.Screen.Stop(stopCtx, record.ScreenName)
+		if err := m.waitForBackendExit(stopCtx, record.ID); err != nil {
+			return errors.Join(stopErr, err)
+		}
+	}
+	if record.ShutdownProtocol == 1 {
+		sockets, err := m.Screen.List(stopCtx)
+		if err != nil {
+			return fmt.Errorf("cannot confirm Screen exit: %w", err)
+		}
+		for _, socket := range sockets {
+			if socket.Name == record.ScreenName {
+				stopErr = m.Screen.Stop(stopCtx, record.ScreenName)
+				break
+			}
+		}
+	}
+	if err := m.confirmStopped(stopCtx, record.ScreenName, stopErr == nil); err != nil {
 		// A control error is not proof of exit. Keep the stop intent active so
 		// retries remain possible and prune/uninstall cannot orphan the session.
 		return errors.Join(stopErr, err)
 	}
 	_, updateErr := m.Store.stop(record.ID, m.now(), "stopped-by-manager")
 	return errors.Join(stopErr, updateErr)
+}
+
+func (m Manager) stopTimeout() time.Duration {
+	if m.StopTimeout > 0 {
+		return m.StopTimeout
+	}
+	return defaultStopTimeout
+}
+
+func (m Manager) waitForBackendExit(ctx context.Context, id string) error {
+	for {
+		record, err := m.Store.Load(id)
+		if err != nil {
+			return fmt.Errorf("cannot confirm backend exit: %w", err)
+		}
+		if !record.ExitUnconfirmed() {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("backend exit is unconfirmed; stop remains pending (older runners may require manual shutdown): %w", ctx.Err())
+		case <-time.After(25 * time.Millisecond):
+		}
+	}
 }
 
 func (m Manager) confirmStopped(ctx context.Context, name string, wait bool) error {
@@ -296,6 +351,10 @@ func (m Manager) reconcile(records []Record, sockets []screenpkg.Socket) ([]Reco
 					*record = updated
 				}
 			}
+			continue
+		}
+		if record.ExitUnconfirmed() {
+			errs = append(errs, fmt.Errorf("session %s has no Screen socket but backend exit is unconfirmed; cleanup is blocked", record.ID))
 			continue
 		}
 		if record.Active() && now.Sub(record.CreatedAt) > startingGrace {

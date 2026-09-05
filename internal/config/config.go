@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	SchemaVersion         = 1
+	SchemaVersion         = 2
 	ProxyCredentialSchema = 1
 	ManagedProxyBaseURL   = "http://127.0.0.1:8317"
 )
@@ -23,17 +23,19 @@ var beforePrivateConfigPublish func(string) error
 var afterPrivateConfigPublish func(string) error
 
 type Runtime struct {
-	SchemaVersion      int    `json:"schema_version"`
-	RealClaude         string `json:"real_claude"`
-	ClaudexMode        string `json:"claudex_mode"`
-	RealClaudex        string `json:"real_claudex,omitempty"`
-	ScreenPath         string `json:"screen_path"`
-	CLIProxyExecutable string `json:"cliproxyapi_executable,omitempty"`
-	CLIProxyConfig     string `json:"cliproxyapi_config,omitempty"`
-	ProxyCredential    string `json:"proxy_credential,omitempty"`
-	ManagedSettings    string `json:"managed_settings,omitempty"`
-	CLIProxyService    string `json:"cliproxyapi_service"`
-	CLIProxySystemUnit bool   `json:"cliproxyapi_system_unit,omitempty"`
+	SchemaVersion      int      `json:"schema_version"`
+	EnabledBackends    []string `json:"enabled_backends,omitempty"`
+	RealClaude         string   `json:"real_claude"`
+	RealCodex          string   `json:"real_codex,omitempty"`
+	ClaudexMode        string   `json:"claudex_mode"`
+	RealClaudex        string   `json:"real_claudex,omitempty"`
+	ScreenPath         string   `json:"screen_path"`
+	CLIProxyExecutable string   `json:"cliproxyapi_executable,omitempty"`
+	CLIProxyConfig     string   `json:"cliproxyapi_config,omitempty"`
+	ProxyCredential    string   `json:"proxy_credential,omitempty"`
+	ManagedSettings    string   `json:"managed_settings,omitempty"`
+	CLIProxyService    string   `json:"cliproxyapi_service"`
+	CLIProxySystemUnit bool     `json:"cliproxyapi_system_unit,omitempty"`
 }
 
 type ProxyCredential struct {
@@ -126,11 +128,33 @@ func EncodeRuntime(runtime Runtime) ([]byte, error) {
 }
 
 func (runtime Runtime) Validate() error {
-	if runtime.SchemaVersion != SchemaVersion {
+	if runtime.SchemaVersion != 1 && runtime.SchemaVersion != SchemaVersion {
 		return fmt.Errorf("unsupported sclaude configuration schema version %d", runtime.SchemaVersion)
 	}
-	if err := requireAbsolute("real_claude", runtime.RealClaude); err != nil {
-		return err
+	if runtime.SchemaVersion == 1 && (runtime.EnabledBackends != nil || runtime.RealCodex != "") {
+		return errors.New("native backend configuration requires schema version 2")
+	}
+	seen := map[string]bool{}
+	for _, name := range runtime.Backends() {
+		if !ValidBackend(name) || seen[name] {
+			return errors.New("enabled_backends contains an unknown or duplicate backend")
+		}
+		seen[name] = true
+	}
+	if len(seen) == 0 {
+		return errors.New("at least one backend must be enabled")
+	}
+	if runtime.BackendEnabled("claude") || runtime.ClaudexMode == "managed_proxy" || runtime.RealClaude != "" {
+		if err := requireAbsolute("real_claude", runtime.RealClaude); err != nil {
+			return err
+		}
+	}
+	if runtime.BackendEnabled("codex") {
+		if err := requireAbsolute("real_codex", runtime.RealCodex); err != nil {
+			return err
+		}
+	} else if runtime.RealCodex != "" {
+		return errors.New("real_codex is configured but the codex backend is disabled")
 	}
 	if err := requireAbsolute("screen_path", runtime.ScreenPath); err != nil {
 		return err
@@ -146,12 +170,26 @@ func (runtime Runtime) Validate() error {
 		return errors.New("sclaude configuration enables cliproxyapi_system_unit without the systemd service")
 	}
 
-	switch runtime.ClaudexMode {
+	mode := runtime.ClaudexMode
+	if !runtime.BackendEnabled("claudex") {
+		if mode != "" && mode != "disabled" {
+			return errors.New("claudex_mode is configured but the claudex backend is disabled")
+		}
+		mode = "disabled"
+	}
+	switch mode {
+	case "disabled":
+		if runtime.BackendEnabled("claudex") {
+			return errors.New("enabled claudex backend has no routing mode")
+		}
+		if runtime.RealClaudex != "" || runtime.hasManagedProxyFields() {
+			return errors.New("disabled claudex configuration contains proxy fields")
+		}
 	case "external":
 		if err := requireAbsolute("real_claudex", runtime.RealClaudex); err != nil {
 			return err
 		}
-		if runtime.CLIProxyExecutable != "" || runtime.CLIProxyConfig != "" || runtime.ProxyCredential != "" || runtime.ManagedSettings != "" || runtime.CLIProxyService != "none" || runtime.CLIProxySystemUnit {
+		if runtime.hasManagedProxyFields() {
 			return errors.New("sclaude external claudex configuration contains managed proxy fields")
 		}
 	case "managed_proxy":
@@ -175,6 +213,32 @@ func (runtime Runtime) Validate() error {
 		return errors.New("sclaude configuration has an invalid claudex_mode")
 	}
 	return nil
+}
+
+func ValidBackend(name string) bool {
+	return name == "claude" || name == "claudex" || name == "codex"
+}
+
+// Omitted selection retains the original Claude + claudex contract. Loading a
+// legacy document never rewrites it or implicitly enables a new provider.
+func (runtime Runtime) Backends() []string {
+	if runtime.EnabledBackends == nil {
+		return []string{"claude", "claudex"}
+	}
+	return append([]string(nil), runtime.EnabledBackends...)
+}
+
+func (runtime Runtime) BackendEnabled(name string) bool {
+	for _, enabled := range runtime.Backends() {
+		if enabled == name {
+			return true
+		}
+	}
+	return false
+}
+
+func (runtime Runtime) hasManagedProxyFields() bool {
+	return runtime.CLIProxyExecutable != "" || runtime.CLIProxyConfig != "" || runtime.ProxyCredential != "" || runtime.ManagedSettings != "" || runtime.CLIProxyService != "none" || runtime.CLIProxySystemUnit
 }
 
 func LoadProxyCredential(path string) (ProxyCredential, error) {

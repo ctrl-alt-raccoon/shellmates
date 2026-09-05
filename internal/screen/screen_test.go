@@ -82,7 +82,7 @@ func TestClientStartAndStopArguments(t *testing.T) {
 	if err := client.StartDetached(context.Background(), "sclaude-doctor-12345678"); err != nil {
 		t.Fatal(err)
 	}
-	assertLines(t, logPath, []string{"-dmS", "sclaude-doctor-12345678", "/bin/sh", "-c", "while :; do sleep 3600; done"})
+	assertLines(t, logPath, []string{"-dmS", "sclaude-doctor-12345678", "/bin/sh", "-c", "exec /bin/cat >/dev/null"})
 	if err := client.Stop(context.Background(), "sc-claude-work-12345678"); err != nil {
 		t.Fatal(err)
 	}

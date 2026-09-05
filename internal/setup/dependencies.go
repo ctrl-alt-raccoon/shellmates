@@ -10,6 +10,8 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+
+	"github.com/ctrl-alt-raccoon/sclaude/internal/config"
 )
 
 const (
@@ -39,6 +41,9 @@ type Dependency struct {
 }
 
 type SetupOptions struct {
+	Backends              string
+	CodexExecutable       string
+	externalClaudex       bool
 	Yes                   bool
 	Headless              bool
 	NonInteractive        bool
@@ -136,15 +141,22 @@ func checkDependencies(opts SetupOptions) []Dependency {
 		required      bool
 	}{
 		{"GNU Screen", "screen", true},
-		{"Claude Code", "claude", true},
-		{"Codex CLI", "codex", false},
-		{"CLIProxyAPI", "cliproxyapi", true},
+		{"Claude Code", "claude", opts.needsClaude()},
+		{"Codex CLI", "codex", opts.backendSelected("codex")},
+		{"CLIProxyAPI", "cliproxyapi", opts.backendSelected("claudex") && !opts.SkipProxy},
 	}
 	result := make([]Dependency, 0, len(checks))
 	for _, check := range checks {
+		if check.command == "claude" && !opts.needsClaude() ||
+			check.command == "codex" && (opts.SkipCodex || opts.Backends != "" && !opts.backendSelected("codex")) ||
+			check.command == "cliproxyapi" && !opts.backendSelected("claudex") {
+			continue
+		}
 		var path string
 		var err error
 		switch check.command {
+		case "codex":
+			path, err = configuredCodexExecutable(opts.CodexExecutable)
 		case "claude":
 			path, err = discoverClaudeExecutable()
 		case "screen":
@@ -164,6 +176,27 @@ func checkDependencies(opts SetupOptions) []Dependency {
 }
 
 func ValidateSetupOptions(opts SetupOptions) error {
+	if opts.Backends != "" {
+		seen := map[string]bool{}
+		for _, name := range opts.selectedBackends() {
+			if !config.ValidBackend(name) || seen[name] {
+				return errors.New("--backends must be a comma-separated selection of claude, claudex, codex without duplicates")
+			}
+			seen[name] = true
+		}
+		if opts.SkipCodex && seen["codex"] {
+			return errors.New("cannot combine --skip-codex with the codex backend")
+		}
+		if !seen["claudex"] && (opts.ManagedProxyExplicit || opts.CLIProxyExecutable != "" || opts.CLIProxyConfig != "" || opts.CLIProxySystemService || opts.CLIProxyService != "" && opts.CLIProxyService != "auto") {
+			return errors.New("managed proxy options require the claudex backend")
+		}
+		if !seen["codex"] && opts.CodexExecutable != "" {
+			return errors.New("--codex-executable requires the codex backend")
+		}
+	}
+	if opts.SkipCodex && opts.CodexExecutable != "" {
+		return errors.New("cannot combine --skip-codex with --codex-executable")
+	}
 	switch opts.CLIProxyService {
 	case "", "auto", "brew", "systemd", "docker", "none":
 	default:
@@ -188,6 +221,30 @@ func ValidateSetupOptions(opts SetupOptions) error {
 		}
 	}
 	return nil
+}
+
+func (opts SetupOptions) selectedBackends() []string {
+	if opts.Backends == "" {
+		return []string{"claude", "claudex"}
+	}
+	names := strings.Split(opts.Backends, ",")
+	for i := range names {
+		names[i] = strings.TrimSpace(names[i])
+	}
+	return names
+}
+
+func (opts SetupOptions) backendSelected(name string) bool {
+	for _, selected := range opts.selectedBackends() {
+		if name == selected {
+			return true
+		}
+	}
+	return false
+}
+
+func (opts SetupOptions) needsClaude() bool {
+	return opts.backendSelected("claude") || opts.backendSelected("claudex") && !opts.externalClaudex
 }
 
 func RunSetup(ctx context.Context, opts SetupOptions) error {
@@ -295,7 +352,7 @@ func runDependencySetupWithHomebrewResolver(
 		}
 	}
 
-	if missing["claude"] {
+	if missing["claude"] && opts.needsClaude() {
 		if opts.DryRun {
 			printManualDependencyInstall(
 				opts.Output,
@@ -311,14 +368,13 @@ func runDependencySetupWithHomebrewResolver(
 		}
 	}
 	if missing["codex"] && !opts.SkipCodex {
-		printManualDependencyInstall(
-			opts.Output,
-			opts.DryRun,
-			"optional Codex CLI",
-			CodexManualInstallCommand,
-		)
+		if opts.backendSelected("codex") && !opts.DryRun {
+			dependencyErr = errors.Join(dependencyErr, manualDependencyInstallError("Codex CLI", CodexManualInstallCommand))
+		} else if opts.Backends == "" || opts.backendSelected("codex") {
+			printManualDependencyInstall(opts.Output, opts.DryRun, "Codex CLI", CodexManualInstallCommand)
+		}
 	}
-	if missing["cliproxyapi"] && !opts.SkipProxy {
+	if missing["cliproxyapi"] && !opts.SkipProxy && opts.backendSelected("claudex") {
 		if platform.OS == "darwin" {
 			brew, err := resolveHomebrew("brew", "/opt/homebrew/bin/brew", "/usr/local/bin/brew")
 			if err != nil {

@@ -71,7 +71,12 @@ func RunDoctorWithOptions(ctx context.Context, paths config.Paths, opts DoctorOp
 	}
 	report.Checks = append(report.Checks, Check{Name: "runtime configuration", OK: true, Detail: redactHome(paths.ConfigFile)})
 
-	appendConfiguredExecutableCheck(&report, "Claude Code", runtimeConfig.RealClaude)
+	if runtimeConfig.BackendEnabled("claude") || runtimeConfig.ClaudexMode == "managed_proxy" {
+		appendConfiguredExecutableCheck(&report, "Claude Code", runtimeConfig.RealClaude)
+	}
+	if runtimeConfig.BackendEnabled("codex") {
+		appendConfiguredExecutableCheck(&report, "Codex CLI", runtimeConfig.RealCodex)
+	}
 	screenOK := appendConfiguredExecutableCheck(&report, "GNU Screen", runtimeConfig.ScreenPath)
 	if screenOK {
 		if opts.Screen == nil {

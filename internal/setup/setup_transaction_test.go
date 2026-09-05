@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -481,7 +482,7 @@ func TestLoadRuntimeFinalizesCommittedSetupTransaction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded != runtimeConfig {
+	if !reflect.DeepEqual(loaded, runtimeConfig) {
 		t.Fatalf("runtime = %+v, want %+v", loaded, runtimeConfig)
 	}
 	assertSetupArtifactsAbsent(t, transaction)

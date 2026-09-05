@@ -18,6 +18,7 @@ type Choice struct {
 }
 
 func Choose(input io.Reader, output io.Writer, backend string, records []session.Record, haveArgs bool) (Choice, error) {
+	reader := bufio.NewReader(input)
 	filtered := make([]session.Record, 0, len(records))
 	for _, record := range records {
 		if record.Backend == backend {
@@ -33,10 +34,10 @@ func Choose(input io.Reader, output io.Writer, backend string, records []session
 	}
 	_, _ = fmt.Fprintln(output, "\nn  New named session\nm  All sessions\nq  Cancel")
 	if haveArgs {
-		_, _ = fmt.Fprintln(output, "Supplied Claude arguments apply only to a new session.")
+		_, _ = fmt.Fprintln(output, "Supplied backend arguments apply only to a new session.")
 	}
 	_, _ = fmt.Fprint(output, "Choice: ")
-	line, err := bufio.NewReader(input).ReadString('\n')
+	line, err := reader.ReadString('\n')
 	if err != nil && err != io.EOF {
 		return Choice{}, err
 	}
@@ -53,7 +54,31 @@ func Choose(input io.Reader, output io.Writer, backend string, records []session
 	if err != nil || index < 1 || index > len(filtered) {
 		return Choice{}, fmt.Errorf("invalid choice %q", value)
 	}
-	return Choice{Action: "attach", Record: &filtered[index-1]}, nil
+	record := &filtered[index-1]
+	if record.State == session.StateStopping {
+		_, _ = fmt.Fprintln(output, "Stop is pending. Retry stop or wait for confirmed exit before attaching.")
+		return Choice{Action: "cancel"}, nil
+	}
+	if record.Active() {
+		return Choice{Action: "attach", Record: record}, nil
+	}
+	_, _ = fmt.Fprintln(output, "This Screen session has ended. [n] New conversation, [r] native resume picker, [q] cancel.")
+	_, _ = fmt.Fprintln(output, "The picker is not tied to this Screen record; it uses the backend's saved conversations and ignores supplied arguments.")
+	if backend == "claudex" {
+		_, _ = fmt.Fprintln(output, "Resuming Claude history here may send prior conversation content to the configured proxy/provider.")
+	}
+	line, err = reader.ReadString('\n')
+	if err != nil && err != io.EOF {
+		return Choice{}, err
+	}
+	switch strings.ToLower(strings.TrimSpace(line)) {
+	case "n":
+		return Choice{Action: "new", Record: record}, nil
+	case "r":
+		return Choice{Action: "resume", Record: record}, nil
+	default:
+		return Choice{Action: "cancel"}, nil
+	}
 }
 
 func PromptTopic(input io.Reader, output io.Writer) (string, error) {
@@ -83,6 +108,9 @@ func PrintTable(output io.Writer, records []session.Record) {
 }
 
 func Status(record session.Record) string {
+	if record.State == session.StateStopping {
+		return "Stopping (pending)"
+	}
 	if record.Active() && record.ScreenStatus != "" {
 		return "Running/" + string(record.ScreenStatus)
 	}

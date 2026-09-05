@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"runtime"
 	"strings"
 	"time"
@@ -68,7 +69,57 @@ func defaultUpdateDeps() updateDeps {
 }
 
 func Update(ctx context.Context, opts UpdateOptions, layout InstallLayout) (InstallLedger, error) {
-	return updateWithDeps(ctx, opts, layout, defaultUpdateDeps())
+	deps := defaultUpdateDeps()
+	// As in the bootstrap installer, the verified candidate owns migrations.
+	// An older candidate must reject an unfamiliar ledger instead of the new
+	// updater installing it behind a scodex launcher it cannot understand.
+	deps.install = func(source, version string, layout InstallLayout) (InstallLedger, error) {
+		return installDownloadedRelease(ctx, source, version, layout)
+	}
+	return updateWithDeps(ctx, opts, layout, deps)
+}
+
+func installDownloadedRelease(ctx context.Context, source, version string, layout InstallLayout) (InstallLedger, error) {
+	expectedLayout, err := DefaultInstallLayout(layout.BinDir)
+	if err != nil {
+		return InstallLedger{}, err
+	}
+	if expectedLayout != layout {
+		return InstallLedger{}, errors.New("candidate install layout differs from the current user environment")
+	}
+	if err := inspectRegularSource(source); err != nil {
+		return InstallLedger{}, err
+	}
+	if err := os.Chmod(source, 0o700); err != nil {
+		return InstallLedger{}, err
+	}
+	cmd := exec.CommandContext(ctx, source, "_install-release", "--source", source, "--version", version, "--bin-dir", layout.BinDir)
+	// Downloaded filenames are temporary; product dispatch must not mistake
+	// them for a vendor CLI alias. _install-release is always noninteractive.
+	cmd.Args[0] = "sclaude"
+	if err := cmd.Run(); err != nil {
+		return InstallLedger{}, fmt.Errorf("release installer failed (older releases may not support this install ledger): %w", err)
+	}
+	ledger, err := LoadInstallLedger(ledgerPath(layout))
+	if err != nil {
+		return InstallLedger{}, err
+	}
+	digest, err := digestRegularFile(source)
+	if err != nil {
+		return InstallLedger{}, err
+	}
+	if ledger.Current != version || ledger.Releases[version] != digest {
+		return InstallLedger{}, errors.New("candidate did not publish the expected release ledger")
+	}
+	if err := preflightLedger(layout, ledger); err != nil {
+		return InstallLedger{}, err
+	}
+	if _, err := os.Lstat(journalPath(layout)); err == nil {
+		ledger.Warnings = append(ledger.Warnings, "release activated; installer cleanup is pending and will be retried by the next management operation")
+	} else if !errors.Is(err, os.ErrNotExist) {
+		ledger.Warnings = append(ledger.Warnings, "release activated; could not inspect pending installer cleanup")
+	}
+	return ledger, nil
 }
 
 func updateWithDeps(ctx context.Context, opts UpdateOptions, layout InstallLayout, deps updateDeps) (InstallLedger, error) {

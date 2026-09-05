@@ -130,6 +130,24 @@ func (s Store) MarkRunning(id string, runnerPID int, now time.Time) (Record, err
 	})
 }
 
+// ClaimRunner publishes shutdown capability before spawning a child. A stop
+// request winning this lock prevents a later child from starting; a runner
+// winning it must acknowledge exit, even if startup subsequently fails.
+func (s Store) ClaimRunner(id string, pid int, now time.Time) (Record, error) {
+	if pid <= 0 {
+		return Record{}, errors.New("runner PID must be positive")
+	}
+	return s.lifecycleUpdate(id, false, func(record *Record) (bool, error) {
+		if (record.State != StateStarting && record.State != StateRunning) || record.RunnerPID != 0 {
+			return false, ErrSessionNotRunnable
+		}
+		record.ShutdownProtocol = 1
+		record.RunnerPID = pid
+		record.UpdatedAt = now.UTC()
+		return true, nil
+	})
+}
+
 // MarkStarted atomically records the runner and child PIDs after the backend
 // process has started. A concurrent stop or terminal transition wins.
 func (s Store) MarkStarted(id string, runnerPID, backendPID int, now time.Time) (Record, error) {
@@ -148,6 +166,14 @@ func (s Store) MarkStarted(id string, runnerPID, backendPID int, now time.Time) 
 			}
 			return true, nil
 		case StateRunning:
+			if record.ShutdownProtocol == 1 && record.RunnerPID == runnerPID && record.BackendPID == 0 {
+				record.BackendPID = backendPID
+				record.UpdatedAt = now.UTC()
+				if record.StartedAt == nil {
+					record.StartedAt = timePointer(now)
+				}
+				return true, nil
+			}
 			if record.RunnerPID == runnerPID && record.BackendPID == backendPID {
 				return false, nil
 			}
@@ -177,6 +203,21 @@ func (s Store) SetBackendPID(id string, backendPID int, now time.Time) (Record, 
 // or an existing terminal result. It also removes any launch request.
 func (s Store) Finish(id string, exitCode int, termSignal string, now time.Time) (Record, error) {
 	return s.lifecycleUpdate(id, true, func(record *Record) (bool, error) {
+		if record.ShutdownProtocol == 1 {
+			// Only the runner calls Finish, after waiting for its actual child (or
+			// proving Start failed). Do not finalize a stop before Screen also exits.
+			if record.BackendExited {
+				return false, nil
+			}
+			record.BackendExited = true
+			record.ExitCode = &exitCode
+			record.TermSignal = termSignal
+			record.UpdatedAt = now.UTC()
+			if record.State == StateStarting || record.State == StateRunning {
+				MarkStopped(record, now, "process-exited")
+			}
+			return true, nil
+		}
 		switch record.State {
 		case StateStarting, StateRunning:
 			MarkStopped(record, now, "process-exited")
@@ -229,6 +270,9 @@ func (s Store) requestStop(id string, now time.Time) (Record, error) {
 
 func (s Store) stop(id string, now time.Time, reason string) (Record, error) {
 	return s.lifecycleUpdate(id, true, func(record *Record) (bool, error) {
+		if record.ExitUnconfirmed() {
+			return false, errors.New("backend exit is unconfirmed; session cannot be finalized")
+		}
 		if !record.Active() {
 			return false, nil
 		}
@@ -451,7 +495,7 @@ func (s Store) Delete(record Record) error {
 		if err != nil {
 			return err
 		}
-		if current.Active() {
+		if current.Active() || current.ExitUnconfirmed() {
 			return errors.New("cannot prune an active session")
 		}
 		if err := removeRegular(s.dirs.launch, record.ID+".json"); err != nil {
@@ -630,6 +674,9 @@ func readPrivateRegular(directory *fssecure.Directory, name string) ([]byte, os.
 func validateRecord(record Record) error {
 	if record.SchemaVersion != 1 {
 		return fmt.Errorf("unsupported session schema %d", record.SchemaVersion)
+	}
+	if record.ShutdownProtocol < 0 || record.ShutdownProtocol > 1 || (record.BackendExited && (record.ShutdownProtocol != 1 || record.ExitCode == nil)) {
+		return errors.New("invalid session shutdown acknowledgement")
 	}
 	if err := validateID(record.ID); err != nil {
 		return err

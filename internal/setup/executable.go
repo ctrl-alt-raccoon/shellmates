@@ -37,19 +37,40 @@ func discoverExecutable(command string, homebrewPaths ...string) (string, error)
 }
 
 func discoverClaudeExecutable() (string, error) {
+	return discoverHarnessExecutable("claude")
+}
+
+func configuredCodexExecutable(explicit string) (string, error) {
+	if explicit == "" {
+		return discoverHarnessExecutable("codex")
+	}
+	if !filepath.IsAbs(explicit) {
+		return "", errors.New("Codex executable must be an absolute path")
+	}
+	resolved, err := validateExecutablePath(explicit)
+	if err != nil {
+		return "", err
+	}
+	if matchesAnyIdentity(resolved, projectExecutableIdentities()) {
+		return "", errors.New("Codex executable resolves to a project launcher")
+	}
+	return filepath.Clean(explicit), nil
+}
+
+func discoverHarnessExecutable(command string) (string, error) {
 	owned := projectExecutableIdentities()
-	for _, candidate := range validatedCommandCandidates("claude", validateExecutablePath) {
+	for _, candidate := range validatedCommandCandidates(command, validateExecutablePath) {
 		if !matchesAnyIdentity(candidate.Resolved, owned) {
 			return candidate.Candidate, nil
 		}
 	}
 	if home, err := os.UserHomeDir(); err == nil {
-		candidate := filepath.Join(home, ".local", "bin", "claude")
+		candidate := filepath.Join(home, ".local", "bin", command)
 		if paths := validatedCandidate(candidate, validateExecutablePath); len(paths) > 0 && !matchesAnyIdentity(paths[0].Resolved, owned) {
 			return paths[0].Candidate, nil
 		}
 	}
-	return "", fmt.Errorf("claude: %w", exec.ErrNotFound)
+	return "", fmt.Errorf("%s: %w", command, exec.ErrNotFound)
 }
 
 func resolveCommand(command string, fallbackPaths ...string) (string, error) {
@@ -393,6 +414,7 @@ func projectExecutableIdentities(extraPaths ...string) []fileIdentity {
 		paths = append(paths,
 			filepath.Join(layout.BinDir, "sclaude"),
 			filepath.Join(layout.BinDir, "sclaudex"),
+			filepath.Join(layout.BinDir, "scodex"),
 			filepath.Join(layout.DataDir, "current", "sclaude"),
 		)
 		if ledger, ledgerErr := LoadInstallLedger(filepath.Join(layout.StateDir, "ledger.json")); ledgerErr == nil {

@@ -1,0 +1,5 @@
+# Only the module manifests are inputs to the disposable SSH test image.
+# Do not send Git metadata, local agent settings, or build/test state.
+*
+!go.mod
+!go.sum

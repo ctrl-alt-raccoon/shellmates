@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -149,7 +150,7 @@ func TestLoadAllowsSymlinkedAncestor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded != runtime {
+	if !reflect.DeepEqual(loaded, runtime) {
 		t.Fatalf("Load = %#v, want %#v", loaded, runtime)
 	}
 }

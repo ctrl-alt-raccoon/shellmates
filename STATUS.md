@@ -260,16 +260,34 @@ The shutdown implementation and earlier native draft remain uncommitted because 
 
 Cleanup for this pass: both disposable Linux containers removed themselves; no matching Mac fixture backend/runner remained in the scoped process check. Removed the exact unused test image `sclaude-shutdown-check:20260905-narrnx` and newly pulled `golang:1.26.8-bookworm` tag (base digest `sha256:9fdc884aacc3bec89b20ffc69f4bb369c78210e3e4f600387b5128b12c199f81`), without global Docker pruning. Removed approximately 584 MiB of disposable Mac caches and three state roots. Every removal returned 0. The small harness/Dockerfile/module-manifest recipe remains under the named temporary root for reproduction; prior audit evidence remains unchanged.
 
+### 2026-09-05: fixture repair and native/shutdown implementation checkpoint
+
+The user authorized continuing the proposed verification work and explicitly requested a persistent goal. The goal covers the bounded fixture repair, Mac/Linux checks, an isolated real SSH regression, an implementation freeze, one complete matrix, and an agent-scaffolding boundary recommendation. It does not authorize deployment, remote mutation, or an unbounded claim of perfection.
+
+The newly declared maximum was three focused fix/check rounds; the pass ended successfully after two:
+
+1. Repaired `TestRunSessionStartsWhileCreatorHoldsStateRootAdmission` with a synthetic live socket for its exact record. It now waits for the watchdog probe while admission remains held, and releases admission before draining on failure. The production watchdog is unchanged. Repaired the custom Homebrew workflow fixture through an internal resolver dependency seam: production still uses only its fixed trusted locations; the test supplies a fixture-owned trusted installation and isolates all three XDG roots. No Homebrew installation on Linux or PATH trust relaxation was used.
+   - Mac: `SCLAUDE_SCREEN_INTEGRATION=1 SCLAUDE_RELEASE_INTEGRATION=1 go test -race -count=1 ./internal/session ./internal/app ./internal/screen ./internal/setup ./internal/config ./internal/backend ./internal/ui` passed, respectively 2.557s, 11.979s, 10.598s, 22.116s, 2.026s, 2.757s, 3.067s.
+   - Linux arm64, unprivileged container, same command: all passed, respectively 1.184s, 15.505s, 1.083s, 13.488s, 1.021s, 1.016s, 1.009s.
+   - The new opt-in SSH test initially failed before application setup with `Permission denied (publickey)`. Its generated authorized key was outside the account's passwd home, beneath world-writable `/tmp`; OpenSSH strict path checks remained enabled. This was a test-server fixture failure, not evidence of an application lifecycle failure.
+2. Moved SSH fixture files beneath the test account's real home on a private container tmpfs, with explicit key ownership and private mode. `SCLAUDE_SSH_INTEGRATION=1 go test -race -count=1 -v -run '^TestLinuxSSHReconnect$' ./internal/app` passed (test 9.97s, package 10.982s). Unprivileged native-only setup, detached creation, two abrupt SSH transport losses, reattach/input to the same backend PID, acknowledged stop, backend absence, and prune all passed. No product code changed in this round. The third round was not needed.
+
+The native Codex, configuration/argument separation, installer migration, runner shutdown acknowledgement, and related fixtures are now ready for their implementation checkpoint. The final complete matrix has NOT started at this boundary. Both platforms used Go 1.26.8. The SSH test uses OpenSSH and Screen 4.9.0 in a disposable Linux container, binds only its loopback interface, generates fixture keys, and invokes no vendor backend. It does not simulate silent half-open TCP connections, prove behavior of real Claude/Codex releases, or guarantee exit of daemonized descendants beyond the documented launcher contract.
+
+Preparation: the pinned `govulncheck@v1.7.0` was built in a disposable directory, not installed globally. The Linux test image contains declared modules and test dependencies before the matrix. The first image build emitted a tar warning because its overly broad temporary build context overlapped a growing Go cache; the build itself exited 0 and copied only the two module manifests. The checked-in SSH recipe now has a restrictive `.dockerignore`. No host SSH service, live credentials, plugin execution, shell profile, remote repository, tag, or release was changed.
+
+Agent scaffolding recommendation: keep this repository focused on reliable Screen sessions, backend boundaries, SSH recovery, workflow automation and usability. The existing `CLAUDE.md` and three small project verification/reporting/review skills are appropriate project-specific guidance. There is currently no tracked `AGENTS.md` or `.agents/skills` adapter; the optional pinned Claude Code Codex plugin declaration is separate from native `scodex`. Keep reusable personal/team agent rules, general skills, model defaults, MCP/plugin bundles and opt-in bootstrap templates in a separately versioned agent-toolkit repository; never put credentials there. Future thin Claude/Codex entrypoints here should share project rules rather than duplicate policy. This follows the supported global-versus-repository distinction in [official Codex customization guidance](https://learn.chatgpt.com/docs/customization/overview) and [skill scopes](https://learn.chatgpt.com/docs/build-skills). No scaffold migration or new repository was performed.
+
 ## Remaining tasks
 
-1. Repair the two final-round test-fixture survivors in a newly authorized bounded pass, then finish native Codex/shutdown verification and its implementation checkpoint before the final complete matrix. Do not weaken the new shutdown or executable-trust checks to make fixtures pass.
+1. Freeze the passing native/shutdown/SSH implementation checkpoint and run the newly authorized complete matrix once. Record any failure and stop; do not deploy before the final gates are resolved.
 2. Publish `main` only when separately authorized: GitHub repository metadata and topics, protected `release` environment, deploy-key addition, origin configuration, push, and CI wait. None has been performed.
 3. Do not create a tag or release; that remains explicitly unauthorized.
 
 ## Key decisions and constraints
 
 - `sclaude` routes to ordinary Claude Code/Anthropic; managed `sclaudex` keeps Claude Code as the harness and routes through CLIProxyAPI at `http://127.0.0.1:8317`.
-- Draft `scodex` runs native Codex, not Claude over the proxy. The real shutdown regression passes on Mac and Linux; do not deploy the draft until the remaining fixture failures and final matrix are resolved.
+- `scodex` runs native Codex, not Claude over the proxy. Focused shutdown regressions pass on Mac/Linux and the isolated Linux SSH reconnect regression passes; the final matrix remains the deployment gate.
 - An existing external `claudex` remains opaque and is referenced only by a stable absolute path.
 - Prompts/backend arguments exist only in private one-use launch files and are never persisted in session records.
 - Automated verification uses temporary HOME/XDG roots and explicit localhost fixtures; it must not touch live OAuth, proxy, service, shell-profile, or credential state.
@@ -284,4 +302,5 @@ Cleanup for this pass: both disposable Linux containers removed themselves; no m
 
 - Add local `actionlint` coverage in a future task if a trusted installation path is selected; do not block this task on installing it.
 - Consider automating GitHub attestation verification in the installer in a future release, with a separately reviewed trust model.
-- Low-severity review survivor: in the admission test's failure-only cleanup path, release admission and open the gate before draining the runner so a hypothetical future lock regression diagnoses quickly instead of burning the 30-second drain; passing runs are unaffected.
+- Add thin Codex project guidance when the user supplies the forthcoming house rules; keep cross-project agent behavior in a separate toolkit and avoid automatic vendor-config changes.
+- A user-authorized real-vendor pilot on the intended Linux host, plus silent half-open SSH/keepalive behavior, remains distinct from the isolated fake-backend regression.

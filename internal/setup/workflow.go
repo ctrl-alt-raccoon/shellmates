@@ -91,7 +91,10 @@ func runWorkflow(ctx context.Context, opts SetupOptions, runner CommandRunner) (
 	if executable, exeErr := os.Executable(); exeErr == nil {
 		selfExecutables = append(selfExecutables, executable)
 	}
-	external, hasExternal := FindExternalClaudex(selfExecutables...)
+	external, hasExternal := "", false
+	if opts.backendSelected("claudex") {
+		external, hasExternal = FindExternalClaudex(selfExecutables...)
+	}
 	managedProxyExplicit := opts.ManagedProxyExplicit ||
 		opts.CLIProxyExecutable != "" ||
 		opts.CLIProxyConfig != "" ||
@@ -101,7 +104,8 @@ func runWorkflow(ctx context.Context, opts SetupOptions, runner CommandRunner) (
 		external, hasExternal = "", false
 	}
 	dependencyOpts := opts
-	if hasExternal {
+	dependencyOpts.externalClaudex = hasExternal
+	if hasExternal || !opts.backendSelected("claudex") {
 		dependencyOpts.SkipProxy = true
 	}
 	if err := runSetupDependencies(ctx, dependencyOpts); err != nil {
@@ -117,9 +121,12 @@ func runWorkflow(ctx context.Context, opts SetupOptions, runner CommandRunner) (
 	if err != nil {
 		return result, err
 	}
-	realClaude, err := discoverClaudeExecutable()
-	if err != nil {
-		return result, errors.New("Claude Code is not available after setup")
+	realClaude := ""
+	if dependencyOpts.needsClaude() {
+		realClaude, err = discoverClaudeExecutable()
+		if err != nil {
+			return result, errors.New("Claude Code is not available after setup")
+		}
 	}
 	screenPath, err := discoverScreenExecutable()
 	if err != nil {
@@ -127,13 +134,41 @@ func runWorkflow(ctx context.Context, opts SetupOptions, runner CommandRunner) (
 	}
 	runtimeConfig := config.Runtime{
 		SchemaVersion:   config.SchemaVersion,
+		EnabledBackends: opts.selectedBackends(),
 		RealClaude:      realClaude,
 		ScreenPath:      screenPath,
 		CLIProxyService: "none",
 	}
-	if hasExternal {
-		runtimeConfig.ClaudexMode = "external"
-		runtimeConfig.RealClaudex = external
+	if !opts.SkipCodex && (opts.Backends == "" || opts.backendSelected("codex")) {
+		realCodex, codexErr := configuredCodexExecutable(opts.CodexExecutable)
+		if codexErr != nil && (opts.backendSelected("codex") || opts.CodexExecutable != "") {
+			return result, fmt.Errorf("Codex CLI is not available after setup: %w", codexErr)
+		}
+		if codexErr == nil {
+			runtimeConfig.RealCodex = realCodex
+			if !runtimeConfig.BackendEnabled("codex") {
+				runtimeConfig.EnabledBackends = append(runtimeConfig.EnabledBackends, "codex")
+			}
+		}
+	}
+	if opts.SkipProxy && !hasExternal {
+		if opts.Backends != "" && opts.backendSelected("claudex") {
+			return result, errors.New("claudex was selected but no external claudex was found and CLIProxyAPI setup was skipped")
+		}
+		selected := []string{}
+		for _, name := range runtimeConfig.EnabledBackends {
+			if name != "claudex" {
+				selected = append(selected, name)
+			}
+		}
+		runtimeConfig.EnabledBackends = selected
+	}
+	if hasExternal || !runtimeConfig.BackendEnabled("claudex") {
+		runtimeConfig.ClaudexMode = "disabled"
+		if hasExternal {
+			runtimeConfig.ClaudexMode = "external"
+			runtimeConfig.RealClaudex = external
+		}
 		transaction, runtimeIndex, err := prepareSetupTransaction(setupLock, paths, runtimeConfig, preparedShell.addFiles)
 		if err != nil {
 			return result, err
@@ -148,11 +183,8 @@ func runWorkflow(ctx context.Context, opts SetupOptions, runner CommandRunner) (
 			return result, err
 		}
 		result.Config = runtimeConfig
-		result.ExternalClaudex = true
+		result.ExternalClaudex = hasExternal
 		return result, nil
-	}
-	if opts.SkipProxy {
-		return result, errors.New("no external claudex was found and CLIProxyAPI setup was skipped")
 	}
 	proxyExecutable := opts.CLIProxyExecutable
 	if proxyExecutable == "" {
@@ -510,6 +542,10 @@ func PrintWorkflowResult(output io.Writer, result WorkflowResult) {
 	}
 	if result.ExternalClaudex {
 		_, _ = fmt.Fprintf(output, "sclaudex will use the existing opaque claudex executable at %s\n", result.Config.RealClaudex)
+		return
+	}
+	if !result.Config.BackendEnabled("claudex") {
+		_, _ = fmt.Fprintf(output, "Configured backends: %s. Native harness configuration and authentication were left unchanged.\n", strings.Join(result.Config.Backends(), ", "))
 		return
 	}
 	if result.ServicePending {

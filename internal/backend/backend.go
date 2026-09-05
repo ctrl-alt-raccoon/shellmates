@@ -24,10 +24,19 @@ const (
 	ManagedDisallowedClaudeAPISkill = "Skill(claude-api)"
 )
 
-// Command resolves one of the two isolated product backends into exact argv and
-// environment values. It reads managed credentials only for a claudex launch.
+// Command resolves an enabled backend into exact argv and environment values.
+// Native Codex owns its configuration/authentication; only managed claudex reads
+// the project's proxy credential and injects Claude-specific arguments.
 func Command(runtime config.Runtime, backend string, args []string, env []string) (string, []string, []string, error) {
+	if config.ValidBackend(backend) && !runtime.BackendEnabled(backend) {
+		return "", nil, nil, fmt.Errorf("backend %q is disabled; enable it with sclaude setup --backends", backend)
+	}
 	switch backend {
+	case "codex":
+		if runtime.RealCodex == "" {
+			return "", nil, nil, errors.New("Codex CLI executable path is missing")
+		}
+		return runtime.RealCodex, clone(args), clone(env), nil
 	case "claude":
 		if runtime.RealClaude == "" {
 			return "", nil, nil, errors.New("Claude Code executable path is missing")
@@ -101,6 +110,15 @@ func ResolveReal(command string, excludedRoots ...string) (string, error) {
 		}
 	}
 	return resolved, nil
+}
+
+// ResumeArguments opens the native conversation picker. A Screen record ID is
+// deliberately never passed as a vendor conversation ID.
+func ResumeArguments(name string) []string {
+	if name == "codex" {
+		return []string{"resume"}
+	}
+	return []string{"--resume"}
 }
 
 func managedArguments(args []string, settingsPath string) ([]string, error) {

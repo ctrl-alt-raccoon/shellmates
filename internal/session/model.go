@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/ctrl-alt-raccoon/sclaude/internal/config"
 )
 
 type State string
@@ -26,27 +28,29 @@ const (
 )
 
 type Record struct {
-	SchemaVersion int          `json:"schema_version"`
-	ID            string       `json:"id"`
-	Topic         string       `json:"topic"`
-	TopicSlug     string       `json:"topic_slug"`
-	Backend       string       `json:"backend"`
-	CWD           string       `json:"cwd"`
-	ScreenName    string       `json:"screen_name"`
-	CreatedAt     time.Time    `json:"created_at"`
-	StartedAt     *time.Time   `json:"started_at,omitempty"`
-	UpdatedAt     time.Time    `json:"updated_at"`
-	EndedAt       *time.Time   `json:"ended_at,omitempty"`
-	LastSeenAt    *time.Time   `json:"last_seen_at,omitempty"`
-	State         State        `json:"state"`
-	ScreenStatus  ScreenStatus `json:"screen_status,omitempty"`
-	ScreenPID     int          `json:"screen_pid,omitempty"`
-	RunnerPID     int          `json:"runner_pid,omitempty"`
-	BackendPID    int          `json:"backend_pid,omitempty"`
-	ExitCode      *int         `json:"exit_code,omitempty"`
-	TermSignal    string       `json:"term_signal,omitempty"`
-	EndReason     string       `json:"end_reason,omitempty"`
-	LaunchError   string       `json:"launch_error,omitempty"`
+	SchemaVersion    int          `json:"schema_version"`
+	ID               string       `json:"id"`
+	Topic            string       `json:"topic"`
+	TopicSlug        string       `json:"topic_slug"`
+	Backend          string       `json:"backend"`
+	CWD              string       `json:"cwd"`
+	ScreenName       string       `json:"screen_name"`
+	CreatedAt        time.Time    `json:"created_at"`
+	StartedAt        *time.Time   `json:"started_at,omitempty"`
+	UpdatedAt        time.Time    `json:"updated_at"`
+	EndedAt          *time.Time   `json:"ended_at,omitempty"`
+	LastSeenAt       *time.Time   `json:"last_seen_at,omitempty"`
+	State            State        `json:"state"`
+	ScreenStatus     ScreenStatus `json:"screen_status,omitempty"`
+	ScreenPID        int          `json:"screen_pid,omitempty"`
+	RunnerPID        int          `json:"runner_pid,omitempty"`
+	BackendPID       int          `json:"backend_pid,omitempty"`
+	ShutdownProtocol int          `json:"shutdown_protocol,omitempty"`
+	BackendExited    bool         `json:"backend_exited,omitempty"`
+	ExitCode         *int         `json:"exit_code,omitempty"`
+	TermSignal       string       `json:"term_signal,omitempty"`
+	EndReason        string       `json:"end_reason,omitempty"`
+	LaunchError      string       `json:"launch_error,omitempty"`
 }
 
 type LaunchRequest struct {
@@ -60,7 +64,7 @@ func NewRecord(topic, backend, cwd string, now time.Time) (Record, error) {
 	if err != nil {
 		return Record{}, err
 	}
-	if backend != "claude" && backend != "claudex" {
+	if !config.ValidBackend(backend) {
 		return Record{}, fmt.Errorf("unknown backend %q", backend)
 	}
 	if strings.TrimSpace(cwd) == "" {
@@ -125,6 +129,15 @@ func Slugify(topic string) string {
 
 func (r Record) Active() bool {
 	return r.State == StateStarting || r.State == StateRunning || r.State == StateStopping
+}
+
+// ExitUnconfirmed is intentionally conservative for older runners. Stored PIDs
+// are diagnostic metadata, never authority for sending a signal after a restart.
+func (r Record) ExitUnconfirmed() bool {
+	if r.ShutdownProtocol == 1 {
+		return !r.BackendExited
+	}
+	return (r.BackendPID > 0 || r.RunnerPID > 0) && r.ExitCode == nil
 }
 
 func randomID() (string, error) {

@@ -21,8 +21,8 @@ import (
 )
 
 const (
-	installLedgerSchema  = 2
-	installJournalSchema = 2
+	installLedgerSchema  = 3
+	installJournalSchema = 3
 )
 
 var releaseTagPattern = regexp.MustCompile(`^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$`)
@@ -51,6 +51,7 @@ type InstallLedger struct {
 	DataDir       string                         `json:"data_dir,omitempty"`
 	StateDir      string                         `json:"state_dir,omitempty"`
 	Releases      map[string]string              `json:"releases,omitempty"`
+	CodexReleases map[string]bool                `json:"codex_releases,omitempty"`
 	Files         map[string]string              `json:"files"`
 	ShellBlocks   map[string]ShellBlockOwnership `json:"shell_blocks,omitempty"`
 	InstalledAt   string                         `json:"installed_at"`
@@ -147,7 +148,7 @@ func InstalledLayout() (InstallLayout, error) {
 	}
 	layout := base
 	layout.BinDir = ledger.BinDir
-	if ledger.SchemaVersion == installLedgerSchema {
+	if ledger.SchemaVersion >= 2 {
 		layout.DataDir = ledger.DataDir
 		layout.StateDir = ledger.StateDir
 	}
@@ -188,18 +189,13 @@ func installBinaryWithOps(source, version string, layout InstallLayout, ops acti
 		if err := ensureInstallDirectories(layout); err != nil {
 			return err
 		}
-		old, exists, migrated, err := loadLedgerForLayout(layout)
+		old, exists, _, err := loadLedgerForLayout(layout)
 		if err != nil {
 			return err
 		}
 		if exists {
 			if err := preflightLedger(layout, old); err != nil {
 				return err
-			}
-			if migrated {
-				if err := persistMigratedLedger(layout, old); err != nil {
-					return err
-				}
 			}
 			if old.Current == version {
 				sourceDigest, err := digestRegularFile(source)
@@ -209,8 +205,13 @@ func installBinaryWithOps(source, version string, layout InstallLayout, ops acti
 				if sourceDigest != old.Releases[version] {
 					return errors.New("same release tag has different contents")
 				}
-				result = old
-				return nil
+				if old.SchemaVersion == installLedgerSchema {
+					result = old
+					return nil
+				}
+			}
+			if err := preflightLauncherUpgrade(layout, old); err != nil {
+				return err
 			}
 		} else if err := preflightFreshInstall(layout); err != nil {
 			return err
@@ -244,16 +245,19 @@ func LoadInstallLedger(path string) (InstallLedger, error) {
 	if decoder.Decode(&struct{}{}) != io.EOF {
 		return InstallLedger{}, errors.New("parse install ledger: trailing data")
 	}
-	if ledger.SchemaVersion != 1 && ledger.SchemaVersion != installLedgerSchema {
+	if ledger.SchemaVersion != 1 && ledger.SchemaVersion != 2 && ledger.SchemaVersion != installLedgerSchema {
 		return InstallLedger{}, fmt.Errorf("unsupported install ledger schema %d", ledger.SchemaVersion)
 	}
 	if strings.TrimSpace(ledger.Current) == "" || strings.TrimSpace(ledger.BinDir) == "" || ledger.Files == nil {
 		return InstallLedger{}, errors.New("install ledger is incomplete")
 	}
-	if ledger.SchemaVersion == installLedgerSchema {
+	if ledger.SchemaVersion >= 2 {
 		if ledger.DataDir == "" || ledger.StateDir == "" || ledger.Releases == nil {
-			return InstallLedger{}, errors.New("install ledger schema 2 is incomplete")
+			return InstallLedger{}, errors.New("install ledger is missing canonical paths or releases")
 		}
+	}
+	if ledger.SchemaVersion == installLedgerSchema && !ledger.CodexReleases[ledger.Current] {
+		return InstallLedger{}, errors.New("install ledger is missing native Codex compatibility information")
 	}
 	return ledger, nil
 }
@@ -316,6 +320,9 @@ func rollbackWithOps(layout InstallLayout, ops activationOps) (InstallLedger, er
 		}
 		if ledger.Previous == "" {
 			return errors.New("no previous release is available")
+		}
+		if !ledger.CodexReleases[ledger.Previous] {
+			return errors.New("previous release predates native Codex support; automatic rollback across this configuration/launcher boundary is refused")
 		}
 		digest, ok := ledger.Releases[ledger.Previous]
 		if !ok || digest == "" {
@@ -396,7 +403,7 @@ func RecordShellOwnership(edits []ShellEdit) error {
 		if _, err := recoverUninstallJournal(layout); err != nil {
 			return err
 		}
-		ledger, exists, migrated, err := loadLedgerForLayout(layout)
+		ledger, exists, _, err := loadLedgerForLayout(layout)
 		if err != nil || !exists {
 			return err
 		}
@@ -406,9 +413,6 @@ func RecordShellOwnership(edits []ShellEdit) error {
 		ledger, err = updateShellOwnership(ledger, edits)
 		if err != nil {
 			return err
-		}
-		if migrated {
-			ledger.SchemaVersion = installLedgerSchema
 		}
 		return writeLedger(layout, ledger)
 	})
@@ -592,7 +596,7 @@ func migrateLedger(layout InstallLayout, old InstallLedger) (InstallLedger, erro
 	}
 	expectedTarget := filepath.Join(currentPath(layout), "sclaude")
 	files := map[string]string{}
-	for _, path := range stableLauncherPaths(layout) {
+	for _, path := range launcherPathsForSchema(layout, 2) {
 		recorded, ok := old.Files[path]
 		if !ok || recorded == "" {
 			return InstallLedger{}, fmt.Errorf("cannot migrate schema-1 ledger: launcher %s is unrecorded", path)
@@ -619,7 +623,7 @@ func migrateLedger(layout InstallLayout, old InstallLedger) (InstallLedger, erro
 		releases[tag] = digest
 	}
 	return InstallLedger{
-		SchemaVersion: installLedgerSchema,
+		SchemaVersion: 2,
 		Current:       old.Current,
 		Previous:      old.Previous,
 		BinDir:        layout.BinDir,
@@ -644,7 +648,7 @@ func preflightFreshInstall(layout InstallLayout) error {
 }
 
 func preflightLedger(layout InstallLayout, ledger InstallLedger) error {
-	if ledger.SchemaVersion != installLedgerSchema {
+	if ledger.SchemaVersion != 2 && ledger.SchemaVersion != installLedgerSchema {
 		return fmt.Errorf("install ledger was not migrated to schema %d", installLedgerSchema)
 	}
 	if err := validateReleaseTag(ledger.Current); err != nil {
@@ -676,7 +680,7 @@ func preflightLedger(layout InstallLayout, ledger InstallLedger) error {
 	}
 
 	expectedTarget := filepath.Join(currentPath(layout), "sclaude")
-	for _, path := range stableLauncherPaths(layout) {
+	for _, path := range launcherPathsForSchema(layout, ledger.SchemaVersion) {
 		recorded, ok := ledger.Files[path]
 		if !ok || recorded == "" {
 			return fmt.Errorf("stable launcher %s is missing from the install ledger", path)
@@ -695,6 +699,19 @@ func preflightLedger(layout InstallLayout, ledger InstallLedger) error {
 		if resolveLinkTarget(path, target) != expectedTarget {
 			return fmt.Errorf("stable launcher %s has an unexpected target", path)
 		}
+	}
+	return nil
+}
+
+func preflightLauncherUpgrade(layout InstallLayout, ledger InstallLedger) error {
+	if ledger.SchemaVersion >= installLedgerSchema {
+		return nil
+	}
+	path := filepath.Join(layout.BinDir, "scodex")
+	if _, err := os.Lstat(path); err == nil {
+		return fmt.Errorf("refusing to overwrite unmanaged path %s", path)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
 	}
 	return nil
 }
@@ -828,12 +845,16 @@ func activateRelease(layout InstallLayout, old InstallLedger, oldExists bool, ta
 		DataDir:       layout.DataDir,
 		StateDir:      layout.StateDir,
 		Releases:      map[string]string{},
+		CodexReleases: map[string]bool{},
 		Files:         map[string]string{},
 		ShellBlocks:   map[string]ShellBlockOwnership{},
 		InstalledAt:   time.Now().UTC().Format(time.RFC3339Nano),
 	}
 	if oldExists {
 		ledger.Releases = cloneStringMap(old.Releases)
+		for version, supported := range old.CodexReleases {
+			ledger.CodexReleases[version] = supported
+		}
 		ledger.Files = cloneStringMap(old.Files)
 		ledger.ShellBlocks = cloneShellOwnership(old.ShellBlocks)
 		if old.Current != tag {
@@ -843,10 +864,13 @@ func activateRelease(layout InstallLayout, old InstallLedger, oldExists bool, ta
 		}
 	}
 	ledger.Releases[tag] = release.Digest
+	ledger.CodexReleases[tag] = true
 
 	launcherTarget := filepath.Join(currentPath(layout), "sclaude")
-	if !oldExists {
-		for _, path := range stableLauncherPaths(layout) {
+	newLaunchers := []string{}
+	for _, path := range stableLauncherPaths(layout) {
+		if !oldExists || old.Files[path] == "" {
+			newLaunchers = append(newLaunchers, path)
 			ledger.Files[path] = symlinkDigest(launcherTarget)
 		}
 	}
@@ -882,11 +906,14 @@ func activateRelease(layout InstallLayout, old InstallLedger, oldExists bool, ta
 	if err := ops.switchCurrent(release.Destination, currentPath(layout)); err != nil {
 		return rollback(err)
 	}
-	if !oldExists {
-		for _, path := range stableLauncherPaths(layout) {
-			if err := atomicSymlink(launcherTarget, path); err != nil {
-				return rollback(err)
-			}
+	for _, path := range newLaunchers {
+		// New launchers have no prior owner. Never replace an entry that
+		// appeared after preflight (including an unrelated scodex command).
+		if err := os.Symlink(launcherTarget, path); err != nil {
+			return rollback(err)
+		}
+		if err := syncDir(filepath.Dir(path)); err != nil {
+			return rollback(err)
 		}
 	}
 	if err := ops.writeLedger(ledgerPath(layout), ledgerData); err != nil {
@@ -982,8 +1009,8 @@ func restoreInstallJournal(layout InstallLayout, journal installJournal) error {
 	if err := restoreLink(currentPath(layout), journal.PriorCurrent); err != nil {
 		return err
 	}
-	for _, path := range stableLauncherPaths(layout) {
-		if err := restoreLink(path, journal.PriorLaunchers[path]); err != nil {
+	for _, path := range launcherPathsForSchema(layout, journal.SchemaVersion) {
+		if err := restoreLauncher(path, journal.PriorLaunchers[path], filepath.Join(currentPath(layout), "sclaude")); err != nil {
 			return err
 		}
 	}
@@ -1004,7 +1031,7 @@ func restoreInstallJournal(layout InstallLayout, journal installJournal) error {
 }
 
 func validateInstallJournal(layout InstallLayout, journal installJournal) error {
-	if journal.SchemaVersion != installJournalSchema || journal.NewLedgerDigest == "" || journal.NewCurrent == "" {
+	if (journal.SchemaVersion != 2 && journal.SchemaVersion != installJournalSchema) || journal.NewLedgerDigest == "" || journal.NewCurrent == "" {
 		return errors.New("install transaction journal is incomplete")
 	}
 	if _, err := hex.DecodeString(journal.NewLedgerDigest); err != nil || len(journal.NewLedgerDigest) != 64 {
@@ -1016,7 +1043,7 @@ func validateInstallJournal(layout InstallLayout, journal installJournal) error 
 	if !validLinkSnapshot(journal.PriorCurrent) {
 		return errors.New("install transaction journal has an invalid current snapshot")
 	}
-	launcherPaths := stableLauncherPaths(layout)
+	launcherPaths := launcherPathsForSchema(layout, journal.SchemaVersion)
 	if len(journal.PriorLaunchers) != len(launcherPaths) {
 		return errors.New("install transaction journal has invalid launcher snapshots")
 	}
@@ -1200,7 +1227,7 @@ func installJournalComplete(layout InstallLayout, journal installJournal) bool {
 		return false
 	}
 	expectedLauncher := filepath.Join(currentPath(layout), "sclaude")
-	for _, path := range stableLauncherPaths(layout) {
+	for _, path := range launcherPathsForSchema(layout, journal.SchemaVersion) {
 		target, err := readSymlink(path)
 		if err != nil || resolveLinkTarget(path, target) != expectedLauncher {
 			return false
@@ -1215,6 +1242,33 @@ func restoreLink(path string, snapshot linkSnapshot) error {
 		return removeIfPresent(path)
 	}
 	return atomicSymlink(snapshot.Target, path)
+}
+
+func restoreLauncher(path string, snapshot linkSnapshot, installedTarget string) error {
+	info, err := os.Lstat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		if !snapshot.Exists {
+			return nil
+		}
+		return os.Symlink(snapshot.Target, path)
+	}
+	if err != nil {
+		return err
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		return fmt.Errorf("launcher %s changed during activation; unmanaged entry was preserved", path)
+	}
+	target, err := os.Readlink(path)
+	if err != nil {
+		return err
+	}
+	if snapshot.Exists && target == snapshot.Target {
+		return nil
+	}
+	if resolveLinkTarget(path, target) != installedTarget {
+		return fmt.Errorf("launcher %s changed during activation; unmanaged entry was preserved", path)
+	}
+	return restoreLink(path, snapshot)
 }
 
 func snapshotLink(path string) (linkSnapshot, error) {
@@ -1252,6 +1306,7 @@ func planOwnedReleasePrune(layout InstallLayout, ledger *InstallLedger) ([]insta
 		info, err := os.Lstat(path)
 		if errors.Is(err, os.ErrNotExist) {
 			delete(ledger.Releases, tag)
+			delete(ledger.CodexReleases, tag)
 			continue
 		}
 		if err != nil {
@@ -1269,6 +1324,7 @@ func planOwnedReleasePrune(layout InstallLayout, ledger *InstallLedger) ([]insta
 		}
 		artifacts = append(artifacts, installReleaseArtifact{Path: path, Digest: digest, Identity: identity})
 		delete(ledger.Releases, tag)
+		delete(ledger.CodexReleases, tag)
 	}
 	return artifacts, warnings
 }
@@ -1415,7 +1471,7 @@ func writeLedger(layout InstallLayout, ledger InstallLedger) error {
 }
 
 func persistMigratedLedger(layout InstallLayout, ledger InstallLedger) error {
-	if ledger.SchemaVersion != installLedgerSchema {
+	if ledger.SchemaVersion != 2 && ledger.SchemaVersion != installLedgerSchema {
 		return errors.New("refusing to persist an unmigrated install ledger")
 	}
 	return writeLedger(layout, ledger)
@@ -1490,5 +1546,13 @@ func lockPath(layout InstallLayout) string {
 	return filepath.Dir(filepath.Dir(layout.StateDir))
 }
 func stableLauncherPaths(layout InstallLayout) []string {
-	return []string{filepath.Join(layout.BinDir, "sclaude"), filepath.Join(layout.BinDir, "sclaudex")}
+	return launcherPathsForSchema(layout, installLedgerSchema)
+}
+
+func launcherPathsForSchema(layout InstallLayout, schema int) []string {
+	paths := []string{filepath.Join(layout.BinDir, "sclaude"), filepath.Join(layout.BinDir, "sclaudex")}
+	if schema >= 3 {
+		paths = append(paths, filepath.Join(layout.BinDir, "scodex"))
+	}
+	return paths
 }

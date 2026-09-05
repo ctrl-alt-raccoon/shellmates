@@ -20,7 +20,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
-          go-version-file: go.mod
+          go-version: '1.26.8'
           cache: true
       - name: Install GNU Screen
         if: runner.os == 'Linux'
@@ -40,6 +40,12 @@ jobs:
         run: go test -race ./...
       - name: Vet
         run: go vet ./...
+      - name: Vulnerability scan
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
+      - name: Real GNU Screen and native backend lifecycle
+        run: SCLAUDE_SCREEN_INTEGRATION=1 go test -count=1 -run '^(TestRealScreenLifecycle|TestNativeCodexScreenLifecycle)$' ./internal/screen ./internal/app
+      - name: Candidate-owned installer migration
+        run: SCLAUDE_RELEASE_INTEGRATION=1 go test -count=1 -run '^TestCandidateOwnsInstallerMigration$' ./internal/setup
 
   cross-build:
     runs-on: ubuntu-latest
@@ -49,7 +55,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
-          go-version-file: go.mod
+          go-version: '1.26.8'
       - name: Build snapshot assets
         run: ./scripts/build-release.sh snapshot
       - name: Verify snapshot checksums

@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"syscall"
 	"time"
@@ -40,10 +41,17 @@ const (
 )
 
 func Classify(args []string, stdinTTY, stdoutTTY bool, env map[string]string) Policy {
+	return ClassifyBackend("claude", args, stdinTTY, stdoutTTY, env)
+}
+
+func ClassifyBackend(backendName string, args []string, stdinTTY, stdoutTTY bool, env map[string]string) Policy {
 	if env["SCLAUDE_BYPASS"] == "1" || env["SCLAUDE_MANAGED"] == "1" {
 		return PolicyDirect
 	}
 	if env["STY"] != "" && env["SCLAUDE_FORCE_NEST"] != "1" {
+		return PolicyDirect
+	}
+	if backendName == "codex" && codexDirect(args) {
 		return PolicyDirect
 	}
 	if env["SCLAUDE_FORCE"] == "1" {
@@ -56,7 +64,7 @@ func Classify(args []string, stdinTTY, stdoutTTY bool, env map[string]string) Po
 		if arg == "--" {
 			break
 		}
-		if directPassThroughArg(arg) {
+		if backendName != "codex" && directPassThroughArg(arg) {
 			return PolicyDirect
 		}
 	}
@@ -88,12 +96,18 @@ func Run(ctx context.Context, argv0 string, args []string, ioSet IO, version str
 		case "--":
 			return runDirect(ctx, backendName, args[1:], ioSet)
 		case "-h", "--help":
+			if name == "scodex" {
+				return runDirect(ctx, backendName, args, ioSet)
+			}
 			if len(args) != 1 {
 				return usageError(ioSet.Err, errors.New("help does not accept arguments"))
 			}
 			printProductUsage(ioSet.Out)
 			return 0
 		case "--version":
+			if name == "scodex" {
+				return runDirect(ctx, backendName, args, ioSet)
+			}
 			if len(args) != 1 {
 				return usageError(ioSet.Err, errors.New("--version does not accept arguments"))
 			}
@@ -102,7 +116,7 @@ func Run(ctx context.Context, argv0 string, args []string, ioSet IO, version str
 		}
 	}
 	if productCommand {
-		return runSubcommand(ctx, args, ioSet, version)
+		return runSubcommand(ctx, args, ioSet, version, backendName)
 	}
 	return runLaunch(ctx, backendName, args, ioSet)
 }
@@ -113,12 +127,17 @@ func classifyInvocation(name string, args []string) (backendName string, product
 	if name == "sclaudex" {
 		backendName = "claudex"
 	}
+	if name == "scodex" {
+		backendName = "codex"
+		// Native doctor/update/help commands retain their vendor meaning.
+		return backendName, len(args) > 0 && isCodexManagerCommand(args[0])
+	}
 	return backendName, productBinary && len(args) > 0 && isSubcommand(args[0])
 }
 
 func isProductBinary(name string) bool {
 	switch name {
-	case "sclaude", "sclaudex",
+	case "sclaude", "sclaudex", "scodex",
 		"sclaude_darwin_amd64", "sclaude_darwin_arm64",
 		"sclaude_linux_amd64", "sclaude_linux_arm64":
 		return true
@@ -145,7 +164,7 @@ func runDirect(ctx context.Context, backendName string, args []string, ioSet IO)
 	if err := cmd.Run(); err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
-			return exitErr.ExitCode()
+			return commandExitCode(exitErr)
 		}
 		return fail(ioSet.Err, err)
 	}
@@ -156,6 +175,7 @@ func printProductUsage(output io.Writer) {
 	_, _ = fmt.Fprint(output, `Usage:
   sclaude [CLAUDE_ARGS...]
   sclaudex [CLAUDE_ARGS...]
+  scodex [CODEX_ARGS...]
   sclaude -- CLAUDE_ARGS...
   sclaude COMMAND [OPTIONS]
 
@@ -166,7 +186,7 @@ Commands:
   attach                  Attach to a managed session
   stop                    Stop a managed session
   prune                   Remove stopped session records
-  setup                   Configure sclaude and sclaudex
+  setup                   Configure selected backends (including native Codex)
   doctor                  Check the configured runtime
   verify                  Verify the managed proxy
   update                  Install a published release
@@ -175,10 +195,13 @@ Commands:
   version                 Print the sclaude version
 
 Use a leading -- to pass all following arguments directly to the selected backend.
+scodex reserves sessions/list/new/attach/stop/prune/setup for the manager.
+scodex help, doctor, update, --help and --version belong to Codex itself.
 `)
 }
 
 func runLaunch(ctx context.Context, backendName string, args []string, ioSet IO) int {
+	ioSet.In = bufio.NewReader(ioSet.In)
 	paths, err := config.DefaultPaths()
 	if err != nil {
 		return fail(ioSet.Err, err)
@@ -187,9 +210,13 @@ func runLaunch(ctx context.Context, backendName string, args []string, ioSet IO)
 	if err != nil {
 		return fail(ioSet.Err, err)
 	}
+	if !runtimeConfig.BackendEnabled(backendName) {
+		return fail(ioSet.Err, fmt.Errorf("backend %q is disabled; enable it with sclaude setup --backends", backendName))
+	}
 	envMap := envMap(os.Environ())
-	policy := Classify(args, isTTY(os.Stdin), isTTY(os.Stdout), envMap)
-	if envMap["STY"] != "" && envMap["SCLAUDE_MANAGED"] == "" && envMap["SCLAUDE_FORCE_NEST"] != "1" {
+	policy := ClassifyBackend(backendName, args, isTTY(os.Stdin), isTTY(os.Stdout), envMap)
+	if envMap["STY"] != "" && envMap["SCLAUDE_MANAGED"] == "" && envMap["SCLAUDE_FORCE_NEST"] != "1" &&
+		(backendName != "codex" || !codexDirect(args) && isTTY(os.Stdin) && isTTY(os.Stdout)) {
 		_, _ = fmt.Fprintln(ioSet.Err, "Already inside GNU Screen; running directly (not tracked by sclaude).")
 	}
 	if policy == PolicyDirect {
@@ -241,8 +268,11 @@ func runLaunch(ctx context.Context, backendName string, args []string, ioSet IO)
 			return fail(ioSet.Err, err)
 		}
 		return 0
-	case "new":
+	case "new", "resume":
 		topic := os.Getenv("SCLAUDE_TOPIC")
+		if choice.Record != nil && topic == "" {
+			topic = choice.Record.Topic
+		}
 		if topic == "" {
 			topic, err = ui.PromptTopic(ioSet.In, ioSet.Out)
 			if err != nil {
@@ -250,6 +280,12 @@ func runLaunch(ctx context.Context, backendName string, args []string, ioSet IO)
 			}
 		}
 		cwd, _ := os.Getwd()
+		if choice.Record != nil {
+			cwd = choice.Record.CWD
+		}
+		if choice.Action == "resume" {
+			args = backend.ResumeArguments(backendName)
+		}
 		detach := os.Getenv("SCLAUDE_FORCE") == "1" && (!isTTY(os.Stdin) || !isTTY(os.Stdout))
 		record, err := manager.Create(ctx, topic, backendName, cwd, args, detach)
 		if err != nil {
@@ -264,7 +300,7 @@ func runLaunch(ctx context.Context, backendName string, args []string, ioSet IO)
 	}
 }
 
-func runSubcommand(ctx context.Context, args []string, ioSet IO, version string) int {
+func runSubcommand(ctx context.Context, args []string, ioSet IO, version, defaultBackend string) int {
 	command, commandArgs := args[0], args[1:]
 	switch command {
 	case "help":
@@ -280,7 +316,7 @@ func runSubcommand(ctx context.Context, args []string, ioSet IO, version string)
 		_, _ = fmt.Fprintln(ioSet.Out, version)
 		return 0
 	case "setup":
-		return commandSetup(ctx, commandArgs, ioSet)
+		return commandSetup(ctx, commandArgs, ioSet, defaultBackend)
 	case "_install-release":
 		return commandInstallRelease(commandArgs, ioSet)
 	case "update":
@@ -341,7 +377,7 @@ func runSubcommand(ctx context.Context, args []string, ioSet IO, version string)
 	case "new":
 		var ok bool
 		var code int
-		newOpts, ok, code = parseNewCommand(commandArgs, ioSet.Err)
+		newOpts, ok, code = parseNewCommandForBackend(commandArgs, ioSet.Err, defaultBackend)
 		if !ok {
 			return code
 		}
@@ -481,6 +517,9 @@ func runSubcommand(ctx context.Context, args []string, ioSet IO, version string)
 		}
 		return 0
 	case "new":
+		if !runtimeConfig.BackendEnabled(newOpts.Backend) {
+			return fail(ioSet.Err, fmt.Errorf("backend %q is disabled; enable it with sclaude setup --backends", newOpts.Backend))
+		}
 		if newOpts.CWD == "" {
 			newOpts.CWD, _ = os.Getwd()
 		}
@@ -595,13 +634,17 @@ func parseSessionsCommand(command string, args []string, output io.Writer) (sess
 }
 
 func parseNewCommand(args []string, output io.Writer) (newCommandOptions, bool, int) {
-	opts := newCommandOptions{Backend: "claude"}
+	return parseNewCommandForBackend(args, output, "claude")
+}
+
+func parseNewCommandForBackend(args []string, output io.Writer, defaultBackend string) (newCommandOptions, bool, int) {
+	opts := newCommandOptions{Backend: defaultBackend}
 	prefix, backendArgs := args, []string(nil)
 	if boundary := indexArg(args, "--"); boundary >= 0 {
 		prefix, backendArgs = args[:boundary], args[boundary+1:]
 	}
 	fs := flag.NewFlagSet("new", flag.ContinueOnError)
-	fs.StringVar(&opts.Backend, "backend", opts.Backend, "claude or claudex")
+	fs.StringVar(&opts.Backend, "backend", opts.Backend, "claude, claudex, or codex")
 	fs.StringVar(&opts.Topic, "topic", "", "session topic")
 	fs.StringVar(&opts.CWD, "cwd", "", "working directory")
 	fs.BoolVar(&opts.Detach, "detach", false, "do not attach")
@@ -610,6 +653,9 @@ func parseNewCommand(args []string, output io.Writer) (newCommandOptions, bool, 
 	}
 	if fs.NArg() != 0 {
 		return opts, false, commandUsageError(output, "new", errors.New("backend arguments must follow --"))
+	}
+	if !config.ValidBackend(opts.Backend) {
+		return opts, false, commandUsageError(output, "new", errors.New("backend must be claude, claudex, or codex"))
 	}
 	opts.BackendArgs = append([]string(nil), backendArgs...)
 	return opts, true, 0
@@ -696,10 +742,16 @@ func intersperseFlags(args []string) []string {
 	return append(result, args[boundary:]...)
 }
 
-func commandSetup(ctx context.Context, args []string, ioSet IO) int {
+func commandSetup(ctx context.Context, args []string, ioSet IO, defaultBackend string) int {
 	fs := flag.NewFlagSet("setup", flag.ContinueOnError)
 	fs.SetOutput(ioSet.Err)
 	opts := setup.SetupOptions{Input: ioSet.In, Output: ioSet.Out, ErrorOutput: ioSet.Err}
+	selectedBackends := ""
+	if defaultBackend == "codex" {
+		selectedBackends = "codex"
+	}
+	fs.StringVar(&opts.Backends, "backends", selectedBackends, "comma-separated enabled backends: claude,claudex,codex")
+	fs.StringVar(&opts.CodexExecutable, "codex-executable", "", "absolute path to native Codex CLI")
 	fs.BoolVar(&opts.Yes, "yes", false, "accept ordinary setup choices")
 	fs.BoolVar(&opts.Headless, "headless", false, "use device login")
 	fs.BoolVar(&opts.NonInteractive, "non-interactive", false, "do not prompt")
@@ -842,33 +894,66 @@ func runSession(ctx context.Context, id string, paths config.Paths, runtimeConfi
 		_, _ = store.FailLaunch(id, err.Error(), time.Now())
 		return fail(ioSet.Err, err)
 	}
-	cmd := exec.CommandContext(ctx, command, commandArgs...)
+	// Only this live runner owns the Process handle. No manager reconstructs it
+	// from a persisted PID, which could have been reused by an unrelated process.
+	if _, err := store.ClaimRunner(id, os.Getpid(), time.Now()); err != nil {
+		return fail(ioSet.Err, err)
+	}
+	cmd := exec.Command(command, commandArgs...)
 	cmd.Env, cmd.Dir = commandEnv, record.CWD
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
+	stopSignals, releaseSignals := runnerSignals()
+	defer releaseSignals()
 	if err := cmd.Start(); err != nil {
 		_, _ = store.FailLaunch(id, err.Error(), time.Now())
+		_, _ = store.Finish(id, 1, "", time.Now())
 		return fail(ioSet.Err, err)
 	}
 	if _, err := store.MarkStarted(id, os.Getpid(), cmd.Process.Pid, time.Now()); err != nil {
 		_ = cmd.Process.Kill()
 		_ = cmd.Wait()
+		_, _ = store.Finish(id, 1, "", time.Now())
 		if errors.Is(err, session.ErrSessionNotRunnable) {
 			return fail(ioSet.Err, errors.New("session was stopped before the backend started"))
 		}
 		return fail(ioSet.Err, err)
 	}
-	err = cmd.Wait()
+	nextScreenProbe := time.Now().Add(time.Second)
+	err = waitManagedBackend(ctx, cmd, stopSignals, func() (bool, error) {
+		current, err := store.Load(id)
+		if err != nil || (current.State != session.StateStarting && current.State != session.StateRunning) {
+			return true, err
+		}
+		// A Screen server can die without a forwarded HUP (notably through
+		// macOS login). Confirmed socket absence also asks this owning runner
+		// to shut down; a transient/ambiguous Screen error does not.
+		if time.Now().After(nextScreenProbe) {
+			nextScreenProbe = time.Now().Add(time.Second)
+			probeCtx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+			sockets, probeErr := (screenpkg.Client{Path: runtimeConfig.ScreenPath}).List(probeCtx)
+			cancel()
+			if probeErr == nil {
+				for _, socket := range sockets {
+					if socket.Name == record.ScreenName {
+						return false, nil
+					}
+				}
+				return true, nil
+			}
+		}
+		return false, nil
+	}, backendStopGrace)
 	exit := 0
 	termSignal := ""
 	if err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
-			exit = exitErr.ExitCode()
+			exit = commandExitCode(exitErr)
 			if status, ok := exitErr.Sys().(syscall.WaitStatus); ok && status.Signaled() {
 				termSignal = status.Signal().String()
 			}
 		} else {
-			exit = 1
+			return fail(ioSet.Err, fmt.Errorf("backend wait did not confirm exit: %w", err))
 		}
 	}
 	if _, finishErr := store.Finish(id, exit, termSignal, time.Now()); finishErr != nil {
@@ -891,7 +976,7 @@ func newManager(paths config.Paths, runtimeConfig config.Runtime) (session.Manag
 			if err != nil {
 				return fmt.Errorf("session creation is no longer admitted: %w", err)
 			}
-			if current != runtimeConfig {
+			if !reflect.DeepEqual(current, runtimeConfig) {
 				return errors.New("session creation is no longer admitted: runtime configuration changed")
 			}
 			return nil
@@ -915,7 +1000,7 @@ func executeBackend(runtimeConfig config.Runtime, backendName string, args, env 
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = ioSet.In, ioSet.Out, ioSet.Err
 	if err := cmd.Run(); err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
-			return exitErr.ExitCode()
+			return commandExitCode(exitErr)
 		}
 		return fail(ioSet.Err, err)
 	}
@@ -928,6 +1013,13 @@ func isSubcommand(value string) bool {
 		return true
 	}
 	return false
+}
+
+func commandExitCode(err *exec.ExitError) int {
+	if status, ok := err.Sys().(syscall.WaitStatus); ok && status.Signaled() {
+		return 128 + int(status.Signal())
+	}
+	return err.ExitCode()
 }
 
 func isTTY(file *os.File) bool {

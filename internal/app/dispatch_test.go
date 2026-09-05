@@ -343,6 +343,8 @@ func TestRunSessionStartsWhileCreatorHoldsStateRootAdmission(t *testing.T) {
 	signalDir := t.TempDir()
 	startedPath := filepath.Join(signalDir, "started")
 	releasePath := filepath.Join(signalDir, "release")
+	screenProbePath := filepath.Join(signalDir, "screen-probed")
+	screenPath := filepath.Join(home, "screen")
 	backendPath := filepath.Join(home, "backend")
 	backendScript := "#!/bin/sh\n" +
 		"[ \"$#\" -eq 2 ] || exit 64\n" +
@@ -357,7 +359,7 @@ func TestRunSessionStartsWhileCreatorHoldsStateRootAdmission(t *testing.T) {
 		RealClaude:      backendPath,
 		ClaudexMode:     "external",
 		RealClaudex:     backendPath,
-		ScreenPath:      "/usr/bin/screen",
+		ScreenPath:      screenPath,
 		CLIProxyService: "none",
 	}
 	if err := config.Save(paths.ConfigFile, runtimeConfig); err != nil {
@@ -371,6 +373,14 @@ func TestRunSessionStartsWhileCreatorHoldsStateRootAdmission(t *testing.T) {
 	}
 	record, err := session.NewRecord("Admission regression", "claude", cwd, time.Now())
 	if err != nil {
+		t.Fatal(err)
+	}
+	// This runner is deliberately not inside a real Screen session. Model its
+	// live socket explicitly so the shutdown watchdog has honest fixture state.
+	screenScript := "#!/bin/sh\n[ \"$1\" = '-ls' ] || exit 64\n" +
+		": > '" + screenProbePath + "'\n" +
+		"printf '%s\\n' '1234." + record.ScreenName + " (Detached)'\n"
+	if err := os.WriteFile(screenPath, []byte(screenScript), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.SaveLaunch(session.LaunchRequest{
@@ -420,13 +430,13 @@ func TestRunSessionStartsWhileCreatorHoldsStateRootAdmission(t *testing.T) {
 		close(runnerDone)
 	}()
 	t.Cleanup(func() {
+		releaseAdmission()
 		openReleaseGate()
 		select {
 		case <-runnerDone:
 		case <-time.After(30 * time.Second):
 			t.Error("_run-session did not finish during cleanup")
 		}
-		releaseAdmission()
 	})
 
 	// The runner must reach a durable running state while the creator still
@@ -439,7 +449,8 @@ func TestRunSessionStartsWhileCreatorHoldsStateRootAdmission(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if loaded.State == session.StateRunning && loaded.RunnerPID > 0 && loaded.BackendPID > 0 {
+			_, probeErr := os.Lstat(screenProbePath)
+			if loaded.State == session.StateRunning && loaded.RunnerPID > 0 && loaded.BackendPID > 0 && probeErr == nil {
 				break
 			}
 		}

@@ -107,26 +107,27 @@ func (c Client) Start(ctx context.Context, name, title, cwd, binary, sessionID s
 // explicitly stopped. It is used by health checks that need to prove the GNU
 // Screen socket lifecycle independently of a managed sclaude session.
 func (c Client) StartDetached(ctx context.Context, name string) error {
+	return c.startDetached(ctx, name, detachedProbeCommand)
+}
+
+func (c Client) startDetached(ctx context.Context, name, script string, args ...string) error {
 	if strings.TrimSpace(c.Path) == "" {
 		return errors.New("screen path is required")
 	}
 	if err := validateName(name); err != nil {
 		return err
 	}
-	cmd := exec.CommandContext(
-		ctx,
-		c.Path,
-		"-dmS",
-		name,
-		"/bin/sh",
-		"-c",
-		"while :; do sleep 3600; done",
-	)
+	commandArgs := append([]string{"-dmS", name, "/bin/sh", "-c", script}, args...)
+	cmd := exec.CommandContext(ctx, c.Path, commandArgs...)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return commandError("start disposable screen", err, output)
 	}
 	return nil
 }
+
+// A terminal read ends on hangup/EOF even when an intermediate login process
+// does not forward SIGHUP. Do not spawn a long-lived sleep subprocess for doctor.
+const detachedProbeCommand = "exec /bin/cat >/dev/null"
 
 func (c Client) Attach(ctx context.Context, name, mode string) error {
 	if strings.TrimSpace(c.Path) == "" {

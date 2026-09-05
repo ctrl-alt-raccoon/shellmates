@@ -241,7 +241,9 @@ func validateCLIProxyServiceConfig(manager, configPath string, homebrewPrefix fu
 	return errors.New("Homebrew service management requires the CLIProxyAPI config under the active brew --prefix; use --proxy-service none for a custom --proxy-config")
 }
 
-func resolveActiveHomebrewPrefix() (string, error) {
+// A dependency seam for isolated workflow tests; production still resolves
+// only the fixed, trusted Homebrew locations, never PATH.
+var resolveActiveHomebrewPrefix = func() (string, error) {
 	return activeHomebrewPrefixWithPaths("/opt/homebrew/bin/brew", "/usr/local/bin/brew")
 }
 

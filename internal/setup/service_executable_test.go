@@ -148,16 +148,25 @@ func TestRunWorkflowRejectsCustomExecutableBeforeProxyMutation(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	brew := filepath.Join(binDir, "brew")
+	brew := filepath.Join(prefix, "bin", "brew")
 	if err := os.WriteFile(brew, []byte("#!/bin/sh\nprintf '%s\\n' '"+prefix+"'\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
+	// Keep the production trusted-path policy, but supply a fixture-owned
+	// trusted installation instead of relying on the host's Homebrew or PATH.
+	originalResolver := resolveActiveHomebrewPrefix
+	resolveActiveHomebrewPrefix = func() (string, error) {
+		return activeHomebrewPrefixWithPaths(brew)
+	}
+	t.Cleanup(func() { resolveActiveHomebrewPrefix = originalResolver })
 	original := []byte("host: \"\"\n")
 	if err := os.WriteFile(proxyConfig, original, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "config"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(home, "state"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(home, "data"))
 	t.Setenv("PATH", binDir)
 
 	_, err := runWorkflow(context.Background(), SetupOptions{

@@ -212,7 +212,7 @@ func installedUninstallLayout(requested InstallLayout) (InstallLayout, error) {
 	}
 	layout := requested
 	layout.BinDir = ledger.BinDir
-	if ledger.SchemaVersion == installLedgerSchema {
+	if ledger.SchemaVersion >= 2 {
 		layout.DataDir = ledger.DataDir
 		layout.StateDir = ledger.StateDir
 	}
@@ -288,7 +288,7 @@ func prepareUninstall(paths config.Paths, layout InstallLayout, ledger InstallLe
 		}
 	}
 
-	for _, path := range stableLauncherPaths(layout) {
+	for _, path := range launcherPathsForSchema(layout, ledger.SchemaVersion) {
 		if err := appendEntry(path, nil, false, 0); err != nil {
 			return uninstallJournal{}, nil, err
 		}
