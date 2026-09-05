@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ctrl-alt-raccoon/sclaude/internal/session"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/session"
 )
 
 // Run only inside the disposable Linux container described in testdata/ssh.

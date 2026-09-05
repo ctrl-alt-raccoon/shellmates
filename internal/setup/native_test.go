@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ctrl-alt-raccoon/sclaude/internal/config"
-	screenpkg "github.com/ctrl-alt-raccoon/sclaude/internal/screen"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/config"
+	screenpkg "github.com/ctrl-alt-raccoon/shellmates/internal/screen"
 )
 
 func nativeSetupEnvironment(t *testing.T, commands ...string) (string, config.Paths) {

@@ -1,4 +1,4 @@
-module github.com/ctrl-alt-raccoon/sclaude
+module github.com/ctrl-alt-raccoon/shellmates
 
 go 1.23
 

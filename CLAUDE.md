@@ -1,4 +1,4 @@
-# sclaude development rules
+# Shellmates development rules
 
 ## Safety boundaries
 

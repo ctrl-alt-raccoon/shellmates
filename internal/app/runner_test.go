@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ctrl-alt-raccoon/sclaude/internal/config"
-	"github.com/ctrl-alt-raccoon/sclaude/internal/session"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/config"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/session"
 )
 
 func TestRunSessionRecordsRapidBackendExit(t *testing.T) {

@@ -18,13 +18,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ctrl-alt-raccoon/sclaude/internal/backend"
-	"github.com/ctrl-alt-raccoon/sclaude/internal/config"
-	"github.com/ctrl-alt-raccoon/sclaude/internal/managedsettings"
-	screenpkg "github.com/ctrl-alt-raccoon/sclaude/internal/screen"
-	"github.com/ctrl-alt-raccoon/sclaude/internal/session"
-	"github.com/ctrl-alt-raccoon/sclaude/internal/setup"
-	"github.com/ctrl-alt-raccoon/sclaude/internal/ui"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/backend"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/config"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/managedsettings"
+	screenpkg "github.com/ctrl-alt-raccoon/shellmates/internal/screen"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/session"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/setup"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/ui"
 )
 
 type IO struct {
@@ -172,7 +172,9 @@ func runDirect(ctx context.Context, backendName string, args []string, ioSet IO)
 }
 
 func printProductUsage(output io.Writer) {
-	_, _ = fmt.Fprint(output, `Usage:
+	_, _ = fmt.Fprint(output, `Shellmates — persistent terminal sessions for your coding agents.
+
+Usage:
   sclaude [CLAUDE_ARGS...]
   sclaudex [CLAUDE_ARGS...]
   scodex [CODEX_ARGS...]
@@ -192,7 +194,7 @@ Commands:
   update                  Install a published release
   rollback                Activate the previous release
   uninstall               Remove the installed release
-  version                 Print the sclaude version
+  version                 Print the Shellmates version
 
 Use a leading -- to pass all following arguments directly to the selected backend.
 scodex reserves sessions/list/new/attach/stop/prune/setup for the manager.
@@ -338,7 +340,7 @@ func runSubcommand(ctx context.Context, args []string, ioSet IO, version, defaul
 		if err != nil {
 			return fail(ioSet.Err, err)
 		}
-		_, _ = fmt.Fprintf(ioSet.Out, "updated sclaude to %s\n", ledger.Current)
+		_, _ = fmt.Fprintf(ioSet.Out, "updated Shellmates to %s\n", ledger.Current)
 		for _, warning := range ledger.Warnings {
 			_, _ = fmt.Fprintf(ioSet.Err, "warning: %s\n", warning)
 		}
@@ -866,7 +868,7 @@ func commandInstallRelease(args []string, ioSet IO) int {
 	if err != nil {
 		return fail(ioSet.Err, err)
 	}
-	_, _ = fmt.Fprintf(ioSet.Out, "installed sclaude %s in %s\n", *version, layout.BinDir)
+	_, _ = fmt.Fprintf(ioSet.Out, "installed Shellmates %s in %s\n", *version, layout.BinDir)
 	return 0
 }
 

@@ -16,9 +16,9 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/ctrl-alt-raccoon/sclaude/internal/config"
-	"github.com/ctrl-alt-raccoon/sclaude/internal/fssecure"
-	"github.com/ctrl-alt-raccoon/sclaude/internal/stateroot"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/config"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/fssecure"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/stateroot"
 )
 
 const (

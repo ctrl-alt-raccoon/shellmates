@@ -158,6 +158,60 @@ func TestUpdateLatestUsesValidatedTag(t *testing.T) {
 	}
 }
 
+func TestUpdateDefaultRepositoryPreservesLegacyAssetNames(t *testing.T) {
+	const repo = "ctrl-alt-raccoon/shellmates"
+	if DefaultReleaseRepo != repo {
+		t.Fatalf("default repository = %q, want %q", DefaultReleaseRepo, repo)
+	}
+	binary := []byte("Shellmates release fixture")
+	digest := sha256.Sum256(binary)
+	var requests []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests = append(requests, r.URL.Path)
+		switch r.URL.Path {
+		case "/repos/" + repo + "/releases/latest":
+			_, _ = io.WriteString(w, `{"tag_name":"v2.0.0"}`)
+		case "/" + repo + "/releases/download/v2.0.0/SHA256SUMS":
+			_, _ = io.WriteString(w, hex.EncodeToString(digest[:])+"  sclaude_linux_amd64\n")
+		case "/" + repo + "/releases/download/v2.0.0/sclaude_linux_amd64":
+			_, _ = w.Write(binary)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	installed := false
+	ledger, err := updateWithDeps(context.Background(), UpdateOptions{}, InstallLayout{}, updateDeps{
+		client: server.Client(), apiBase: server.URL, downloadBase: server.URL,
+		goos: "linux", goarch: "amd64", allowHTTP: true,
+		install: func(path, version string, _ InstallLayout) (InstallLedger, error) {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(data) != string(binary) || version != "v2.0.0" {
+				t.Fatalf("candidate=%q version=%q", data, version)
+			}
+			installed = true
+			return InstallLedger{Current: version}, nil
+		},
+	})
+	if err != nil || !installed || ledger.Current != "v2.0.0" || len(requests) != 3 {
+		t.Fatalf("update: err=%v installed=%v current=%q requests=%q", err, installed, ledger.Current, requests)
+	}
+}
+
+func TestBootstrapDefaultReleaseRepository(t *testing.T) {
+	data, err := os.ReadFile("../../install.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "\nREPO=${SCLAUDE_REPO:-"+DefaultReleaseRepo+"}\n") {
+		t.Fatal("bootstrap default repository or SCLAUDE_REPO override differs from the updater contract")
+	}
+}
+
 func TestUpdateTreatsLatestAsInvalidExplicitVersion(t *testing.T) {
 	requests := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

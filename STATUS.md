@@ -328,10 +328,26 @@ Cleanup and completion audit:
 - Final `git diff --exit-code 2cbc319 -- . ':!STATUS.md'` remained clean. Both repaired fixture definitions are present; full cross-platform checks and the opt-in regressions provide current evidence for them. The agent-scaffolding assessment and repository/toolkit boundary recommendation above remain recorded and were already delivered to the user.
 - This completes the approved local verification objective. Real vendor inference/login, silent half-open SSH connections, arbitrary daemonized backend descendants, and hosted CI were not exercised. No live credentials, user service/profile state, plugin execution, remote repository mutation, push, tag, release, or deployment occurred. The separately authorized next stage may be a real-backend pilot on the intended Linux host; it is not part of this completed matrix.
 
+## Shellmates rename and first publication — 2026-09-05
+
+The user selected Shellmates, provided `https://github.com/ctrl-alt-raccoon/shellmates`, explicitly authorized pushing, and requested a complete README/documentation handoff. This is a new, scoped follow-up to the completed `2cbc319` verification freeze, not a retry of that matrix. The rename/focused correction loop is capped at three rounds; the new final frozen tree gets one complete matrix, with no source/config edits afterward and no remote mutation on failure.
+
+GitHub main initially contained only license commit `e29cdeb4c19862d0e4c29d8ee5c27ac3bf26cb7f`. Its `LICENSE` is byte-identical to the local copy. The two histories were unrelated; a conflict-free, non-squashing merge preserves both histories and permits a normal main push without force. GitHub had no releases at inspection. The untracked historical `AUDIT-2026-09-04.md` is excluded from publication.
+
+Implemented the Shellmates README/front-page branding, Go module/import path, bootstrap and updater default repository, and help/chooser headings. Added `CONTRIBUTING.md`, source-build/setup instructions, documentation links, and explicit notice that release downloads are not yet available. The MIT license, security policy, and CI/release workflows remain present. Launcher names, `SCLAUDE_*` variables, config/state/data paths, private-file/session naming, install ledgers, and `sclaude_*` asset names are intentionally unchanged. No `shellmates` executable or storage migration was introduced.
+
+The Claude scaffolding remains tracked: all three `.claude/skills` definitions and `.claude/settings.json` are unchanged; only the project heading in `CLAUDE.md` changed. Runtime backend boundaries, the fake-backend fixture, and isolated SSH regression remain intact apart from Go imports. No Codex-specific `AGENTS.md`/`.agents/skills` adapter or reusable personal harness configuration was added; forthcoming house rules remain a separate task.
+
+Focused round 1 passed: `go test -count=1 -run '^(TestUpdate.*|TestReleaseAssetName|TestBootstrapDefaultReleaseRepository|TestRunHelpCommand|TestStoppedSessionOffersNativeResumeOrNew)$' ./internal/setup ./internal/app ./internal/ui` (setup 0.679s, app 0.748s, UI 1.077s; command 0, cleanup 0, disposable root confirmed absent). New coverage verifies the Shellmates default latest/manifest/binary paths with a localhost fixture, retains the old asset names and repository override, and checks the branded help/chooser. `gofmt` and `git diff --check` passed; a tracked-tree search found no old repository URL outside this historical status log.
+
+Verification preparation used only `/private/tmp/shellmates-publish-20260905.wzkxbf`: Go 1.26.8, all checksum-declared module dependencies, and govulncheck v1.7.0 were prepared successfully. Disposable image `shellmates-verify:20260905-wzkxbf` contains Go 1.26.8, GNU Screen, OpenSSH fixtures, and a complete offline module cache; `go mod verify` passed during its build. Docker warned that its legacy builder is deprecated; noninteractive package installation emitted expected debconf/service-start warnings inside the disposable image. No host services or vendor tools were installed or changed.
+
+The rename and documentation are ready for the new one-shot frozen matrix. The project `verify` and `honesty` skills govern isolation, stop-on-first-failure, and evidence reporting. Origin setup, main publication, metadata update, and hosted CI observation remain pending these gates. No tag, release, deployment, repository-permission change, or live vendor invocation is authorized by this task.
+
 ## Remaining tasks
 
 1. If separately authorized, run a real-backend pilot on the intended Linux/SSH host and apply the forthcoming house rules with a thin project-specific agent adapter. The complete local matrix from `2cbc319` is finished and passed.
-2. Publish `main` only when separately authorized: GitHub repository metadata and topics, protected `release` environment, deploy-key addition, origin configuration, push, and CI wait. None has been performed.
+2. Complete the newly authorized Shellmates publication after its frozen verification gates: configure origin, push `main` without force, update the project description, and observe hosted CI. Changes to repository permissions, the protected `release` environment, deploy keys, and release publication are not included.
 3. Do not create a tag or release; that remains explicitly unauthorized.
 
 ## Key decisions and constraints
@@ -343,7 +359,7 @@ Cleanup and completion audit:
 - Automated verification uses temporary HOME/XDG roots and explicit localhost fixtures; it must not touch live OAuth, proxy, service, shell-profile, or credential state.
 - Never read or modify `~/.codex/`, inspect Claude credential/keychain storage, expose secrets, log users out, or automatically run system-level `sudo`.
 - Existing release assets must never be overwritten in place; fixes require a new release tag.
-- Local implementation/status checkpoints are authorized. The historical July push authorization is not being exercised in this September repair task; no remote mutations without renewed direction. Do not create a tag or publish a release.
+- The September 5 Shellmates follow-up explicitly authorizes the main push and matching project branding. This does not authorize repository-permission changes, deployment, a tag, or a release.
 - Create a local commit after each tracked task is completed and update this file at each boundary.
 - After each authorized complete matrix starts, only `STATUS.md` may change before its verification checkpoint commit.
 - Do not run another adversarial review. Remaining ideas belong in the backlog below.

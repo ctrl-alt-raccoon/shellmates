@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/ctrl-alt-raccoon/sclaude/internal/config"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/config"
 )
 
 func TestCodexPassesArgumentsAndEnvironmentWithoutClaudePolicy(t *testing.T) {

@@ -11,8 +11,8 @@ import (
 	"time"
 	"unicode"
 
-	screenpkg "github.com/ctrl-alt-raccoon/sclaude/internal/screen"
-	"github.com/ctrl-alt-raccoon/sclaude/internal/stateroot"
+	screenpkg "github.com/ctrl-alt-raccoon/shellmates/internal/screen"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/stateroot"
 )
 
 const (

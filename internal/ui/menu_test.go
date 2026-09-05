@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ctrl-alt-raccoon/sclaude/internal/session"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/session"
 )
 
 func TestStoppedSessionOffersNativeResumeOrNew(t *testing.T) {
@@ -18,6 +18,9 @@ func TestStoppedSessionOffersNativeResumeOrNew(t *testing.T) {
 		}
 		if !strings.Contains(output.String(), "not tied to this Screen record") {
 			t.Fatal("resume identity distinction missing")
+		}
+		if !strings.Contains(output.String(), "Shellmates — codex") {
+			t.Fatal("Shellmates heading or selected backend missing")
 		}
 	}
 }

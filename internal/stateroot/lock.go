@@ -8,7 +8,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/ctrl-alt-raccoon/sclaude/internal/fssecure"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/fssecure"
 )
 
 type Hooks struct {

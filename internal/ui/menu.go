@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ctrl-alt-raccoon/sclaude/internal/session"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/session"
 )
 
 type Choice struct {
@@ -28,7 +28,7 @@ func Choose(input io.Reader, output io.Writer, backend string, records []session
 	if len(filtered) == 0 {
 		return Choice{Action: "new"}, nil
 	}
-	_, _ = fmt.Fprintf(output, "sclaude — %s\n\n", backend)
+	_, _ = fmt.Fprintf(output, "Shellmates — %s\n\n", backend)
 	for i, record := range filtered {
 		_, _ = fmt.Fprintf(output, "%d  %-18s %-32s %s\n", i+1, Status(record), truncate(record.Topic, 32), homeRelative(record.CWD))
 	}

@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	configpkg "github.com/ctrl-alt-raccoon/sclaude/internal/config"
-	"github.com/ctrl-alt-raccoon/sclaude/internal/fssecure"
-	screenpkg "github.com/ctrl-alt-raccoon/sclaude/internal/screen"
-	"github.com/ctrl-alt-raccoon/sclaude/internal/session"
-	"github.com/ctrl-alt-raccoon/sclaude/internal/stateroot"
+	configpkg "github.com/ctrl-alt-raccoon/shellmates/internal/config"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/fssecure"
+	screenpkg "github.com/ctrl-alt-raccoon/shellmates/internal/screen"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/session"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/stateroot"
 )
 
 func testInstallLayout(t *testing.T) InstallLayout {

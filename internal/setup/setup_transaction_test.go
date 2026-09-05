@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ctrl-alt-raccoon/sclaude/internal/config"
-	"github.com/ctrl-alt-raccoon/sclaude/internal/fssecure"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/config"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/fssecure"
 )
 
 func TestAcquireSetupAdmissionLockRejectsStateRootReplacement(t *testing.T) {

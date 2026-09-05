@@ -1,6 +1,8 @@
-# sclaude
+# Shellmates
 
-`sclaude` is a lightweight GNU Screen manager for Claude Code and native Codex CLI sessions.
+Persistent terminal sessions for your coding agents.
+
+Shellmates is a lightweight GNU Screen manager for Claude Code and native Codex CLI. Give a session a topic, detach when you need to leave, and reconnect to the same running agent over SSH. It manages sessions and workflow; each vendor CLI remains responsible for its own conversations, authentication, permissions, and skills.
 
 - `sclaude` runs the normal Claude Code backend in a topic-named Screen session.
 - `sclaudex` runs **Claude Code as the harness** and configures CLIProxyAPI's Anthropic-compatible localhost endpoint for Codex models, subject to Claude Code's authentication precedence described below.
@@ -9,15 +11,23 @@
 
 The vendor commands `claude`, `claudex`, and `codex` are never replaced or shadowed.
 
+### A new name, the same commands
+
+Shellmates was previously named sclaude. The project and Go module now live at [`ctrl-alt-raccoon/shellmates`](https://github.com/ctrl-alt-raccoon/shellmates), while `sclaude`, `sclaudex`, and `scodex` remain the installed commands. There is no separate `shellmates` command.
+
+Existing `SCLAUDE_*` environment variables, `sclaude` configuration/state/data directories, Screen session names, install ledgers, and `sclaude_*` release asset names are intentionally preserved. No configuration or session migration is needed for this rename.
+
+Documentation: [usage](#usage), [build from source](#build-from-source), [contributing](CONTRIBUTING.md), [security](SECURITY.md), and [verification status](STATUS.md).
+
 > This is an independent community project. It is not affiliated with Anthropic, OpenAI, GNU, or CLIProxyAPI. Routing subscription traffic through an unofficial client may be subject to provider terms; the account owner accepts that risk.
 
 ## Quick install
 
-The public installer becomes available after the first GitHub release. Download a pinned installer and checksum manifest instead of piping network content directly to a shell:
+No release has been published yet; use [Build from source](#build-from-source) for now. Once the first release is published, replace the example version below with a published tag and download its pinned installer and checksum manifest instead of piping network content directly to a shell:
 
 ```sh
 version=v0.1.0
-base="https://github.com/ctrl-alt-raccoon/sclaude/releases/download/$version"
+base="https://github.com/ctrl-alt-raccoon/shellmates/releases/download/$version"
 curl --proto '=https' --proto-redir '=https' -fLO "$base/install.sh"
 curl --proto '=https' --proto-redir '=https' -fLO "$base/SHA256SUMS"
 grep '  install.sh$' SHA256SUMS | shasum -a 256 -c -
@@ -70,7 +80,7 @@ sclaude setup --backends claude,claudex,codex  # all three routes
 
 `--backends` is the complete enabled selection, not an additive toggle. Without it, `sclaude setup` retains the original Claude/claudex selection and also enables an already-installed Codex unless `--skip-codex` is set. `--skip-proxy` without an external claudex permits Claude-only setup. Explicitly selecting claudex while skipping its proxy requires an external claudex. `scodex setup` defaults to Codex only. Missing explicitly selected dependencies are errors, not silently optional. `--codex-executable /absolute/path/to/codex` supports nonstandard installations and rejects the project's own launchers.
 
-New setup writes sclaude configuration schema 2 with `enabled_backends` and, when selected, `real_codex`. Existing schema-1 configuration still loads as Claude + claudex without modification. Disabling a backend does not delete its previous files or stop its externally managed services. Doctor checks only enabled backends; native authentication is left to each vendor CLI, and doctor does not perform native inference.
+New setup writes configuration schema 2 with `enabled_backends` and, when selected, `real_codex`. Existing schema-1 configuration still loads as Claude + claudex without modification. Disabling a backend does not delete its previous files or stop its externally managed services. Doctor checks only enabled backends; native authentication is left to each vendor CLI, and doctor does not perform native inference.
 
 ### Native Codex arguments and command names
 
@@ -337,10 +347,24 @@ Uninstall first proves that managed Screen sessions are inactive and that all le
 The minimum language version remains Go 1.23; build and verify releases with the patched Go 1.26.8 toolchain pinned in CI. Keeping the language directive separate prevents the release workflow from selecting an obsolete compiler. [Go release history](https://go.dev/doc/devel/release)
 
 ```sh
+git clone https://github.com/ctrl-alt-raccoon/shellmates.git
+cd shellmates
 export GOTOOLCHAIN=go1.26.8
-go test ./...
-go vet ./...
 go build ./cmd/sclaude
+```
+
+With GNU Screen and your chosen vendor CLI installed, configure and launch the local build. For native Codex only:
+
+```sh
+./sclaude setup --backends codex --no-modify-path
+./sclaude new --backend codex --topic "First session"
+```
+
+Use `--backends claude,codex` to enable both native backends, or `--backends claude` for Claude only. Source builds do not install the three launcher links; the release installer creates them. Use `./sclaude` for the local build and select the backend explicitly with `new --backend`.
+
+For development, run tests in disposable HOME/XDG/cache roots as described in [CONTRIBUTING.md](CONTRIBUTING.md). Release and opt-in regression commands, within that isolated verification environment, include:
+
+```sh
 ./scripts/build-release.sh snapshot
 SCLAUDE_SCREEN_INTEGRATION=1 go test -count=1 -run '^(TestRealScreenLifecycle|TestNativeCodexScreenLifecycle)$' ./internal/screen ./internal/app
 SCLAUDE_RELEASE_INTEGRATION=1 go test -count=1 -run '^TestCandidateOwnsInstallerMigration$' ./internal/setup

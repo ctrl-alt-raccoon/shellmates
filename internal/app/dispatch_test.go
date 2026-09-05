@@ -15,10 +15,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ctrl-alt-raccoon/sclaude/internal/config"
-	"github.com/ctrl-alt-raccoon/sclaude/internal/managedsettings"
-	"github.com/ctrl-alt-raccoon/sclaude/internal/session"
-	"github.com/ctrl-alt-raccoon/sclaude/internal/stateroot"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/config"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/managedsettings"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/session"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/stateroot"
 )
 
 func TestClassify(t *testing.T) {
@@ -321,7 +321,7 @@ func TestParseNewCommandBoundary(t *testing.T) {
 func TestRunHelpCommand(t *testing.T) {
 	var out, errOut bytes.Buffer
 	code := Run(context.Background(), "/tmp/sclaude", []string{"help"}, IO{Out: &out, Err: &errOut}, "v1.2.3")
-	if code != 0 || errOut.Len() != 0 || !bytes.Contains(out.Bytes(), []byte("Usage:")) {
+	if code != 0 || errOut.Len() != 0 || !bytes.Contains(out.Bytes(), []byte("Usage:")) || !bytes.Contains(out.Bytes(), []byte("Shellmates")) {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, out.String(), errOut.String())
 	}
 }

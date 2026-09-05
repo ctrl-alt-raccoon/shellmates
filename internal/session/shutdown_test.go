@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	screenpkg "github.com/ctrl-alt-raccoon/sclaude/internal/screen"
+	screenpkg "github.com/ctrl-alt-raccoon/shellmates/internal/screen"
 )
 
 func claimedSession(t *testing.T) (Store, Record) {

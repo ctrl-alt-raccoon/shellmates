@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ctrl-alt-raccoon/sclaude/internal/config"
-	"github.com/ctrl-alt-raccoon/sclaude/internal/managedsettings"
-	screenpkg "github.com/ctrl-alt-raccoon/sclaude/internal/screen"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/config"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/managedsettings"
+	screenpkg "github.com/ctrl-alt-raccoon/shellmates/internal/screen"
 )
 
 type Check struct {

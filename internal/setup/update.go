@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	DefaultReleaseRepo = "ctrl-alt-raccoon/sclaude"
+	DefaultReleaseRepo = "ctrl-alt-raccoon/shellmates"
 
 	maxLatestReleaseSize = 1 << 20
 	maxChecksumFileSize  = 1 << 20

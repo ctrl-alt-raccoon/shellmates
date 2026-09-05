@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ctrl-alt-raccoon/sclaude/internal/config"
-	"github.com/ctrl-alt-raccoon/sclaude/internal/screen"
-	"github.com/ctrl-alt-raccoon/sclaude/internal/session"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/config"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/screen"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/session"
 )
 
 // This test builds the real runner but invokes only a local fake harness. It

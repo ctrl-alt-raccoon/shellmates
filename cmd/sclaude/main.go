@@ -4,7 +4,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/ctrl-alt-raccoon/sclaude/internal/app"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/app"
 )
 
 var version = "dev"

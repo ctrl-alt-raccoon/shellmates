@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ctrl-alt-raccoon/sclaude/internal/config"
-	"github.com/ctrl-alt-raccoon/sclaude/internal/managedsettings"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/config"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/managedsettings"
 )
 
 func managedRuntime(t *testing.T, credentialPath string) config.Runtime {

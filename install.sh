@@ -3,19 +3,19 @@ set -eu
 
 umask 077
 
-REPO=${SCLAUDE_REPO:-ctrl-alt-raccoon/sclaude}
+REPO=${SCLAUDE_REPO:-ctrl-alt-raccoon/shellmates}
 VERSION=${SCLAUDE_VERSION:-latest}
 BIN_DIR=${SCLAUDE_BIN_DIR:-"$HOME/.local/bin"}
 RUN_SETUP=1
 
 usage() {
   cat <<'EOF'
-Install sclaude from a verified GitHub release.
+Install Shellmates from a verified GitHub release.
 
 Usage: install.sh [--version TAG] [--bin-dir DIR] [--no-setup] [-- SETUP_ARGS...]
 
 Environment:
-  SCLAUDE_REPO       GitHub owner/repository (default: ctrl-alt-raccoon/sclaude)
+  SCLAUDE_REPO       GitHub owner/repository (default: ctrl-alt-raccoon/shellmates)
   SCLAUDE_VERSION    Release tag or latest
   SCLAUDE_BIN_DIR    Absolute command directory (default: $HOME/.local/bin)
 EOF
@@ -55,12 +55,12 @@ while [ "$#" -gt 0 ]; do
 done
 
 if [ "$(id -u)" -eq 0 ] && [ "${SCLAUDE_ALLOW_ROOT:-0}" != 1 ]; then
-  echo "Refusing a root install. Run as the user who will use sclaude." >&2
+  echo "Refusing a root install. Run as the user who will use Shellmates." >&2
   exit 1
 fi
 
 command -v curl >/dev/null 2>&1 || {
-  echo "curl is required to download sclaude." >&2
+  echo "curl is required to download Shellmates." >&2
   exit 1
 }
 

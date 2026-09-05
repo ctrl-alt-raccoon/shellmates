@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ctrl-alt-raccoon/sclaude/internal/fssecure"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/fssecure"
 )
 
 const (

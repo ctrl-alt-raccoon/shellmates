@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ctrl-alt-raccoon/sclaude/internal/fssecure"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/fssecure"
 )
 
 type Store struct {

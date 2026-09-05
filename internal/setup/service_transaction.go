@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ctrl-alt-raccoon/sclaude/internal/config"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/config"
 )
 
 type commandOutputRunner interface {
