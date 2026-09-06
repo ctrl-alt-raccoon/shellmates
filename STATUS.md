@@ -74,6 +74,16 @@ preserve both independent requirements: backend-exit acknowledgement and confirm
 socket absence. Missing sockets alone must never certify backend exit, and a
 surviving socket or ambiguous probe must still fail and remain pending.
 
+One focused diagnostic subsequently reproduced that exact inconsistency without
+changing the frozen export or product tree. In a separate disposable copy,
+`go test -count=1 -v -run
+'^TestDiagnosticConfirmsFalseFailureAfterActualShutdown$' ./internal/session`
+passed its defect-witness assertions: backend acknowledgement present, socket
+absent and record terminal, yet the old control error returned. Command 0, cleanup
+0. This proves the diagnosis, not a repair. The witness test deliberately asserts
+the existing defect and lives only under the task's `diagnosis/` directory; it is
+not part of the product tests or proposed publication.
+
 Not run after the stop: Linux real-Screen integration, isolated SSH reconnect,
 final fake-backend build, built-release runtime/doctor/native-Screen probes,
 explicit proxy/plugin gate, optional Archify rerender, final publication scan and
