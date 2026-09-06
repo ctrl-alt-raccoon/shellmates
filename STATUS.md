@@ -2,6 +2,40 @@
 
 Updated: 2026-09-06
 
+## Latest publication gate — stopped, not pushed
+
+Implementation is committed at `71d5243`. The first frozen verification gate ran
+once against its Git-exported source and stopped at ShellCheck. No later matrix
+gate, source/configuration change, remote mutation, push, tag, release or deployment
+followed that failure.
+
+Passed within that gate: Go formatting, offline `go mod verify`, and POSIX shell
+syntax for install/build/render scripts. ShellCheck then returned 1 for SC1007 at
+`scripts/render-architecture.sh:8` and `:9`: the two empty `CDPATH=` assignments
+should be written explicitly as `CDPATH=''`. The existing syntax is valid and the
+optional renderer had already completed successfully, but warnings are nonzero in
+the declared verification gate. No lint suppression or weakened check was added.
+
+The wrapper observed command status 1, cleanup status 0, and removed its exact
+disposable root. Log: `/private/tmp/shellmates-harness-deploy.mZT06K/logs/static.log`.
+The frozen export is under that same task directory's `source/`; no private audit
+or runtime state was included. Staged whitespace checks also caught four trailing
+blank-line artifacts before the implementation commit; those were corrected before
+the freeze, with no semantic change.
+
+Gitleaks found no leaks in the staged change (~158 KB) or the 22 earlier unpushed
+commits (~1.16 MB), with redacted output. This is scanner evidence, not a guarantee
+that every possible secret pattern is detected. GitHub main at
+`e29cdeb4c19862d0e4c29d8ee5c27ac3bf26cb7f` was fetched read-only and is an ancestor
+of this branch. No origin remote was added and GitHub still has the old main.
+
+Remaining for this tree: the two-line renderer-helper lint correction, a newly
+authorized frozen verification pass (full Mac/Linux normal/race/vet, vulnerability
+and release/checksum gates, installer and runtime/SSH checks), then the explicitly
+requested non-forced push. The focused results below remain valid evidence, not a
+substitute for those unrun final gates. Chrome/Chromium visual checks, Linux Python
+3.9 and a real target-host/vendor SSH pilot remain separate unverified limits.
+
 ## Project-local harness deployment — implementation checkpoint
 
 The user authorized supported per-project harness installation, clear documentation,
