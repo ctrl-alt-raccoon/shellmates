@@ -1,4 +1,3 @@
-<!-- agent-harness generated sha256=dbbe40769ddcdaf9267cac78a3c89076e16494c0b752a5da4e5a60cef4023027; edit sources -->
 # Shellmates project guidance
 
 Shellmates manages terminal sessions for native Claude Code and Codex CLI, plus

@@ -17,7 +17,15 @@ Shellmates was previously named sclaude. The project and Go module now live at [
 
 Existing `SCLAUDE_*` environment variables, `sclaude` configuration/state/data directories, Screen session names, install ledgers, and `sclaude_*` release asset names are intentionally preserved. No configuration or session migration is needed for this rename.
 
-Documentation: [usage](#usage), [build from source](#build-from-source), [contributing](CONTRIBUTING.md), [security](SECURITY.md), and [verification status](STATUS.md).
+Documentation: [usage](#usage), [shared harness quick spin](docs/HARNESS.md), [build from source](#build-from-source), [contributing](CONTRIBUTING.md), [security](SECURITY.md), and [verification status](STATUS.md).
+
+### The same working rules and skills across agents
+
+The optional [harness trial](docs/HARNESS.md) loads a separately supplied shared
+Claude/Codex harness in a disposable project: personal preferences, project context,
+handover and explicit cross-review. It does not install global agent configuration.
+Shellmates still owns only terminal sessions; native CLIs keep their own permissions,
+authentication and argument meanings. No Beads/Gemini/proxy dependency is added.
 
 > This is an independent community project. It is not affiliated with Anthropic, OpenAI, GNU, or CLIProxyAPI. Routing subscription traffic through an unofficial client may be subject to provider terms; the account owner accepts that risk.
 

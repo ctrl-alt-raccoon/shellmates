@@ -415,18 +415,96 @@ the separate harness migration: model/effort, context remaining/window, used
 tokens, five-hour/weekly limits, current directory and Git branch remain selected.
 No status-line setting or desktop-app configuration was changed.
 
+### Project-scoped shared harness integration — 2026-09-06
+
+The user retained the existing Mac global harness installation and authorized
+continuing the Shellmates integration for portable trials. This is a new scoped
+implementation after checkpoint 0467e08, not a restart of the f670b01 matrix.
+Declared cap: three focused fix/test rounds, no new adversarial review and no
+publication. No real home configuration, credentials, shell profiles, other
+projects, Gemini or Beads integration was modified in this follow-up.
+
+Implemented:
+
+- Shellmates project.md owns repository facts, commands, safety and verification
+  discipline. CLAUDE.md and new AGENTS.md are generated native projections of
+  that same public project knowledge. TestProjectAgentGuidance checks freshness
+  in the ordinary Go suite without requiring a private harness checkout.
+- scripts/try-harness.py previews by default; --apply requires a new private
+  directory. It creates a disposable Git project, asks the separately supplied
+  harness for project-only rules/skills, checks the result and writes a small
+  launcher that isolates manager XDG/Screen state while preserving native homes
+  and argument boundaries. It does not run setup, login or a model automatically.
+- The shared harness added explicit project --with-harness at 3d7c6b7. This includes
+  shared preferences, the correct provider adapter, project.md and four repository
+  links to the same two skills. Ordinary project mode remains project-only.
+  The harness remains authoritative; no personal preferences or skill bodies were
+  copied into Shellmates. Private used trials must not be committed or transferred.
+- docs/HARNESS.md provides preview, quick spin, reconnect/stop, private source-only
+  transfer and update/removal commands. README links it; CI runs four helper tests.
+  Gemini, Beads, proxy setup and migration of six other projects are not prerequisites.
+
+Observed checks:
+
+1. `HARNESS_NATIVE_SMOKE=1 PYTHONDONTWRITEBYTECODE=1 python3 -B check.py` in
+   agent-harness: 34 passed in 10.166s, including six native localhost fixtures.
+   Two new fixtures remove global instruction/skill files from their temporary
+   homes, then prove native project-only context/skill delivery for both CLIs.
+2. `python3 -B -m unittest discover -s scripts/tests -v`: four passed on Mac in
+   0.686s, four on actual Mac Python 3.9.6 in 0.642s, and four in the offline Linux
+   image in 0.048s. Tests cover no-op preview, existing/broken-link refusal, partial
+   failure preservation, native-home isolation, manager paths and literal argv.
+3. First Linux helper run failed because the disposable /tmp was mounted noexec;
+   /proc/mounts confirmed it. The same tests passed with explicit exec on that
+   disposable mount, network off and source read-only. No product/test assertion
+   was weakened. Mac sandboxed Git emitted a DARWIN_USER_TEMP_DIR fallback warning;
+   tests passed and retained no user state.
+4. Offline Linux `python3 -B check.py`: 28 unit passes, six native opt-in skips,
+   2.464s. Mac `/usr/bin/python3 -B check.py` (3.9.6): 28 passes, six native opt-in
+   skips, 3.621s. Freshness passed. These are not new live Linux vendor tests;
+   Linux Python 3.9 remains unverified.
+5. Isolated/offline `SCLAUDE_SCREEN_INTEGRATION=1 go test -count=1
+   ./internal/backend ./internal/app ./internal/screen`: passed, respectively
+   0.524s / 8.231s / 5.145s. Includes existing real Screen/fake-backend lifecycle.
+   Command 0, cleanup 0, disposable root absent. A separate disposable build
+   of cmd/sclaude also returned command 0 / cleanup 0.
+6. Offline, read-only Linux `go test -count=1 ./internal/backend`: passed in
+   0.004s, command 0 / cleanup 0. Includes the new shared project freshness test.
+7. `/private/tmp/sh-harness.OjiUta/native-screen.py`: the actual trial helper,
+   Shellmates binary, GNU Screen and each installed native CLI delivered project
+   rules and both skills with fixture globals absent. Only a localhost synthetic
+   provider/dummy keys were used. Both sessions reached stopped state, consumed
+   their private launch input and left no Screen socket; no real model/review.
+8. The documented native-only setup passed in an empty temporary home: only trial
+   manager configuration was written. Native HOME and original XDG roots stayed
+   empty. The initial probe's reduced PATH omitted installed Claude; the exposed
+   diagnostic and final corrected PATH probe used three bounded attempts. No
+   dependency installation, login, profile mutation or inference occurred.
+9. YAML/JSON parsing, generated runner/shell-example syntax, 26 local documentation
+   links, project projection freshness and whitespace checks passed.
+
+Small reproduction helpers/disposable binary are in /private/tmp/sh-harness.OjiUta.
+The isolated Go logs use harness-integration-focused/build under the retained
+verification root /private/tmp/shellmates-publish-20260905.wzkxbf. All test sessions
+and temporary state roots were cleaned; source/build artifacts are not live state.
+
+Existing Go runtime/backend/installer code and argument handling were not changed.
+The old complete matrix remains evidence for f670b01 only. This follow-up used
+focused checks, not another full matrix, real vendor inference, live SSH host
+deployment, silent half-open test, plugin execution or publication. Project-scoped
+delivery is observed; model obedience is not guaranteed.
+
 ## Remaining tasks
 
 1. Complete the real Linux/SSH backend pilot, including native arguments,
    reconnect, clean shutdown and a genuinely half-open transport. The new local
    Mac/Linux matrix for `f670b01` is complete and passed. Do not rerun it merely
    because external pilot work remains.
-2. General house rules and shared skills belong to agent-harness. A future
-   Shellmates instruction merge must preserve its project-owned verification
-   discipline and the current frozen-source boundary.
-3. Publication is ready for a separately authorized next stage, not authorized
-   by this migration. No origin was added, and no push, tag, release, deployment
-   or hosted-CI observation occurred.
+2. The optional shared-harness trial and Shellmates instruction merge are now
+   implemented. Use docs/HARNESS.md for a quick spin; keep general policy/skills
+   in the separately supplied harness and private trial projections unpublished.
+3. Publication and its required checks for the newer tree remain separately
+   authorized. No origin, push, tag, release, deployment or hosted-CI observation.
 
 ## Key decisions and constraints
 
@@ -448,5 +526,5 @@ No status-line setting or desktop-app configuration was changed.
 
 - Add local `actionlint` coverage in a future task if a trusted installation path is selected; do not block this task on installing it.
 - Consider automating GitHub attestation verification in the installer in a future release, with a separately reviewed trust model.
-- Add thin Codex project guidance when the user supplies the forthcoming house rules; keep cross-project agent behavior in a separate toolkit and avoid automatic vendor-config changes.
+- Codex project guidance and an opt-in project-scoped harness trial are implemented; do not expand them into automatic vendor-config migration or a new orchestration layer.
 - A user-authorized real-vendor pilot on the intended Linux host, plus silent half-open SSH/keepalive behavior, remains distinct from the isolated fake-backend regression.
