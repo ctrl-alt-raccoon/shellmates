@@ -2,7 +2,17 @@
 
 Updated: 2026-09-06
 
-## Latest publication gate — stopped, not pushed
+## Authorized publication follow-up — preparing the frozen gate
+
+The user explicitly authorized the two-line ShellCheck correction, one fresh
+complete verification matrix, and the non-forced GitHub push if verification
+passes. The renderer now spells both empty assignments as `CDPATH=''`; no lint
+suppression, behavior change or global configuration change is intended. The
+focused correction is capped at one round. The next matrix uses a fresh export
+of its checkpoint, not the previous frozen source. Its first failure would stop
+the remaining gates and publication. Private audit material remains untracked.
+
+## Previous publication gate — stopped, not pushed
 
 Implementation is committed at `71d5243`. The first frozen verification gate ran
 once against its Git-exported source and stopped at ShellCheck. No later matrix
