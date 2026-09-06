@@ -2,15 +2,68 @@
 
 Updated: 2026-09-06
 
-## Authorized publication follow-up — preparing the frozen gate
+## Latest publication gate — stopped at isolated Claude discovery, not pushed
 
 The user explicitly authorized the two-line ShellCheck correction, one fresh
 complete verification matrix, and the non-forced GitHub push if verification
-passes. The renderer now spells both empty assignments as `CDPATH=''`; no lint
-suppression, behavior change or global configuration change is intended. The
-focused correction is capped at one round. The next matrix uses a fresh export
-of its checkpoint, not the previous frozen source. Its first failure would stop
-the remaining gates and publication. Private audit material remains untracked.
+passes. The focused correction passed shell syntax, ShellCheck and whitespace
+checks, and was committed at `388e459`. Both empty assignments now use `CDPATH=''`;
+no lint suppression or product behavior change was added.
+
+The newly authorized matrix ran once against a fresh Git export of
+`388e459a1d636c05cfdc75c0894129e248663da0`. No source or configuration was changed
+after it started. Archive SHA-256:
+`81a05180fd58978580d0e9b434b6abd9892867fdf276e5b96738131e3d49f759`.
+Task artifacts and per-command logs:
+`/private/tmp/shellmates-push-20260906.drDBxV`.
+
+Executed gates, in order:
+
+1. `sh static.sh` through the isolated Mac wrapper: passed Go formatting,
+   `go mod verify`, shell syntax and ShellCheck, both workflow YAML files,
+   project-settings JSON, 50 local documentation links, 32 shell examples,
+   architecture JSON, generated instruction freshness and both skill metadata
+   checks. Repository whitespace also passed.
+2. `go test ./...`: passed all packages; fresh disposable HOME/XDG/module/build
+   root, command 0 and cleanup 0.
+3. `go test -race ./...`: passed all packages; a separate fresh root, command 0
+   and cleanup 0.
+4. `go vet ./...`: passed; a separate fresh root, command 0 and cleanup 0.
+5. `/usr/bin/python3 -B -m unittest discover -s scripts/tests -v`: actual macOS
+   Python 3.9.6, 36 passes and four intended native opt-in skips, 5.734s. Command 0
+   and cleanup 0. The legacy trial fixture emitted the known macOS Git temporary
+   directory fallback warning; its tests passed.
+6. `HARNESS_NATIVE_SMOKE=1 python3 -B -m unittest discover -s scripts/tests
+   -p test_harness_native.py -v`: command 1, cleanup 0. Both Codex tests passed
+   (nested project discovery and bounded review transport with no I/O tools).
+   Claude context discovery failed and Claude review transport errored before
+   either launched: `claude CLI is not on PATH`. This was the first failing gate,
+   so the remaining matrix and publication stopped. The native test command ran
+   its four cases once; no real model was contacted.
+
+Read-only diagnosis found Claude's executable at `/Users/me/.local/bin/claude`,
+pointing to an existing executable `.../claude/versions/2.1.263`. The temporary
+verification wrapper's explicit PATH contains Homebrew/system binaries but omits
+that installation directory. Codex is on the included Homebrew path. This is a
+verification-runner discovery error, not evidence of a failed Claude invocation
+or failed project-context delivery. Neither reinstalling Claude nor changing any
+global native profile is needed. Before a future freeze, resolve/preflight both
+native CLI paths and include the existing Claude executable in the isolated test
+PATH. Do not silently restart this matrix.
+
+All six disposable roots were removed, including the failed native gate's root.
+The untracked private `AUDIT-2026-09-04.md` remains untouched and excluded. No
+global Claude/Codex configuration, credentials, transcripts, shell profiles,
+original harness, remote configuration, push, tag, release or deployment changed.
+
+Not run for this checkpoint: Linux normal/race/vet and Python checks, four-target
+vulnerability scans, release cross-build/checksum checks, explicit installation
+integration, real Screen/runtime/doctor probes, Linux SSH reconnect, built-release
+native/Screen checks, the remaining explicit proxy/plugin gate, optional Archify
+rerender, publication scan/reconciliation and hosted CI. Earlier results apply
+only to their recorded trees. Real target-host/vendor SSH, silent half-open
+transport, Linux Python 3.9 and browser visual review remain separate unverified
+limits. A new complete run needs renewed authorization under the one-shot rule.
 
 ## Previous publication gate — stopped, not pushed
 
