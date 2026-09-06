@@ -356,11 +356,77 @@ The one-shot stop rule was followed. No later matrix gate ran: final module/plug
 
 Post-stop `git diff --exit-code f670b01 -- . ':!STATUS.md'` was clean, and a scoped Docker query found no remaining container using the test image. All per-command Mac test/preflight roots were removed by their wrappers. The 505 MiB preparation cache, scanner, frozen source, small logs/helpers, and named disposable test image are retained for that potential follow-up; no live vendor/account data is included. The local Git remote list is still empty, and the historical audit remains untracked and excluded.
 
+### Authorized helper repair and fresh frozen matrix — 2026-09-06
+
+The migration follow-up explicitly authorized the temporary checker repair and
+one new frozen-source matrix, but prohibits publishing, pushing, tagging,
+releasing or deploying. This supersedes the earlier publication permission for
+the current run. Shellmates remains the terminal/session layer; the general
+agent harness is a separate repository.
+
+Changed only the temporary `docs-check.rb` helper: both `File.read` calls now
+specify `encoding: 'UTF-8'`. Its cleared-environment preflight passed. No
+application source, tracked configuration, dependency declaration or test was
+changed. All 102 non-STATUS tracked files still matched the frozen `f670b01`
+archive by SHA-256; `git diff --exit-code f670b01 -- . ':!STATUS.md'` passed before
+and after the matrix.
+
+All **24 fresh gates passed**, each with command status 0 and cleanup status 0:
+
+1. Static formatting, shell syntax/ShellCheck, YAML/JSON, UTF-8 documentation
+   links and whitespace; offline module verification; static plugin declaration.
+2. Full normal, race and vet checks on macOS arm64 and Linux arm64, using Go
+   1.26.8 and isolated HOME/XDG/module/build roots. Mac normal app/setup:
+   8.850s/17.102s; race: 8.378s/17.264s. Both Linux suites and both vet gates passed.
+3. Four vulnerability gates (Darwin/Linux, arm64/amd64), pinned govulncheck v1.7.0:
+   each reported `No vulnerabilities found.` This is a known-vulnerability scan.
+4. Release cross-build/checksums for `v0.0.0-matrix.f670b01`: the four binaries,
+   installer and checksum manifest were the exact six expected assets. All
+   checksums passed. No asset was published.
+5. Mac/Linux installer/update/rollback/uninstall/purge/ledger/journal/native
+   launcher regressions; separate fake-backend and runtime-probe builds; built
+   release runtime, including private argv consumption, detached Screen, backend
+   PID/marker, acknowledged stop/socket removal, direct non-TTY exit 7 without
+   output or extra records, and all six doctor checks.
+6. Real Screen/native lifecycle checks on Mac and Linux, followed by the Linux
+   SSH race regression: test 9.86s, package 10.872s. It covered two abrupt transport
+   disconnects, reattach/input to the same backend PID, acknowledged shutdown,
+   process absence and prune. The SSH fixture used container loopback, disposable
+   keys, no host port and no live account.
+7. Authenticated localhost proxy tests and the final plugin contract gate. No
+   live plugin was loaded, installed or invoked.
+
+Logs/helpers and the prepared offline cache remain in
+`/private/tmp/shellmates-publish-20260905.wzkxbf`; the gate ledger is
+`/private/tmp/agent-harness-migration-20260906.zNN0f2/shellmates-results.json`.
+All wrappers confirmed cleanup; scoped Docker inspection found no remaining
+container using `shellmates-verify:20260905-wzkxbf`. The named preparation image
+and cache remain available for the separate Linux stage; no global prune or user
+data deletion was performed.
+
+This closes the temporary Ruby blocker and the fresh local matrix. It does not
+prove real vendor inference/login, silent half-open SSH behavior, arbitrary
+daemonized descendants, hosted CI, or a deployed Linux installation. Read-only
+inspection of an existing SSH host found native Claude/Codex and Python 3.13.5,
+but no Screen/scodex in the checked locations. That pilot remains separate.
+
+The existing Codex terminal status-line configuration was checked read-only by
+the separate harness migration: model/effort, context remaining/window, used
+tokens, five-hour/weekly limits, current directory and Git branch remain selected.
+No status-line setting or desktop-app configuration was changed.
+
 ## Remaining tasks
 
-1. If separately authorized, run a real-backend pilot on the intended Linux/SSH host and apply the forthcoming house rules with a thin project-specific agent adapter. The complete local matrix from `2cbc319` is finished and passed.
-2. Shellmates publication is paused by the first-gate temporary UTF-8 documentation-checker failure. With renewed authorization, correct only the temporary checker, preflight it, and run one fresh matrix against `f670b01`; then configure origin, push `main` without force, update the project description, and observe hosted CI. Changes to repository permissions, the protected `release` environment, deploy keys, and release publication are not included.
-3. Do not create a tag or release; that remains explicitly unauthorized.
+1. Complete the real Linux/SSH backend pilot, including native arguments,
+   reconnect, clean shutdown and a genuinely half-open transport. The new local
+   Mac/Linux matrix for `f670b01` is complete and passed. Do not rerun it merely
+   because external pilot work remains.
+2. General house rules and shared skills belong to agent-harness. A future
+   Shellmates instruction merge must preserve its project-owned verification
+   discipline and the current frozen-source boundary.
+3. Publication is ready for a separately authorized next stage, not authorized
+   by this migration. No origin was added, and no push, tag, release, deployment
+   or hosted-CI observation occurred.
 
 ## Key decisions and constraints
 
@@ -371,7 +437,9 @@ Post-stop `git diff --exit-code f670b01 -- . ':!STATUS.md'` was clean, and a sco
 - Automated verification uses temporary HOME/XDG roots and explicit localhost fixtures; it must not touch live OAuth, proxy, service, shell-profile, or credential state.
 - Never read or modify `~/.codex/`, inspect Claude credential/keychain storage, expose secrets, log users out, or automatically run system-level `sudo`.
 - Existing release assets must never be overwritten in place; fixes require a new release tag.
-- The September 5 Shellmates follow-up explicitly authorizes the main push and matching project branding. This does not authorize repository-permission changes, deployment, a tag, or a release.
+- The September 5 Shellmates follow-up authorized the main push and matching
+  branding. The September 6 migration explicitly withholds all outward mutation
+  during this run; a later publication step needs renewed authorization.
 - Create a local commit after each tracked task is completed and update this file at each boundary.
 - After each authorized complete matrix starts, only `STATUS.md` may change before its verification checkpoint commit.
 - Do not run another adversarial review. Remaining ideas belong in the backlog below.
