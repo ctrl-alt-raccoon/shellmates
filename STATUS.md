@@ -494,6 +494,23 @@ focused checks, not another full matrix, real vendor inference, live SSH host
 deployment, silent half-open test, plugin execution or publication. Project-scoped
 delivery is observed; model obedience is not guaranteed.
 
+Portable handoff checkpoint: feature commit 3a0aa1d plus harness commit 3d7c6b7
+were exported to /private/tmp/sh-harness.OjiUta/handoff. The private harness archive
+contains exactly seven runtime files (house rules, adapters, two skills and their
+generator/review script), with no audit/backup/auth/cache/history material. The
+Shellmates Git export excludes the pre-existing untracked audit. SHA256SUMS and a
+short handoff README accompany both archives; these are private source artifacts,
+not a publication or a release binary.
+
+The actual archives were checksum-checked, member-validated and extracted into a
+fresh directory in the existing network-disabled Linux image (Python 3.11.2).
+Preview wrote nothing; apply/check created a working project-scoped trial with
+all four skill links resolving to the extracted Linux-local source. No Mac path,
+original repository, private home or native configuration was needed. Temporary
+extraction/trial state was removed. The source archives and small reproduction
+helpers remain for private transfer. No live host was changed and no full matrix
+or real-model review was repeated.
+
 ## Remaining tasks
 
 1. Complete the real Linux/SSH backend pilot, including native arguments,
