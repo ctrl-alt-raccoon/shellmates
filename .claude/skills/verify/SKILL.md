@@ -30,6 +30,7 @@ Run this skill only after implementation is frozen. The complete matrix runs onc
    - `go vet ./...`
    - Give each command its own fresh disposable root containing dedicated `HOME`, `XDG_CONFIG_HOME`, `XDG_STATE_HOME`, `XDG_DATA_HOME`, `GOMODCACHE`, and `GOCACHE` directories. Never reuse an application state root between the normal and race test commands.
    - Capture and inspect each command's exit status and its cleanup status before starting the next command. Any nonzero status stops the matrix immediately, and success may be reported only after an explicitly observed zero status; `set -e` is not sufficient through helper functions, conditionals, or ad hoc compound wrappers.
+   - Separately run `python3 -B -m unittest discover -s scripts/tests -v` for the embedded project harness, review packet transport contracts and legacy trial helper. Native CLI fixtures remain explicit opt-in localhost checks, never real inference.
 3. Release gates:
    - Build Darwin/Linux for amd64/arm64 with `CGO_ENABLED=0` into a fresh verification directory.
    - Require exactly `sclaude_darwin_amd64`, `sclaude_darwin_arm64`, `sclaude_linux_amd64`, `sclaude_linux_arm64`, `install.sh`, and `SHA256SUMS` before SBOM publication.

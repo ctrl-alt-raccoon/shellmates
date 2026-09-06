@@ -1,6 +1,80 @@
 # Status checkpoint
 
-Updated: 2026-09-05
+Updated: 2026-09-06
+
+## Project-local harness deployment — implementation checkpoint
+
+The user authorized supported per-project harness installation, clear documentation,
+architecture graphs, an Archify assessment/integration where useful, and commit/push
+to `ctrl-alt-raccoon/shellmates`. This new implementation/publication scope supersedes
+the earlier no-push boundary, not the native-profile safety rules. No global Claude/
+Codex configuration, live credentials, transcripts, services or Mac installation was
+changed. The original external agent-harness repository was not edited or retired.
+
+Implemented:
+
+- `sclaude harness install/check/update/remove/recover --project PATH`, with dry-run,
+  explicit private local mode, and opt-in personal preference import. It does not
+  need Screen setup or a configured backend. `scodex` retains its native namespace.
+- One embedded standard-library Python 3.9+ bundle: public working agreements,
+  thin adapters, handover and the previously verified bounded review transport.
+  Installed snapshots use repository-relative skill links; a real Git-clone test
+  checks portability and file-mode stability. No separate source checkout is needed.
+- Preserved native notes outside generated blocks, legacy project/style discovery,
+  lossless adoption of old project-only projections, guarded private Git exclusions,
+  anchored no-follow writes, directory locking, preflighted ownership, undo journal,
+  recovery and conservative removal. Project-owned skills/hooks/settings stay owned
+  by the project. Private preferences cannot silently enter tracked native files.
+- Rewritten README with a native-first quick start; separate installation, proxy,
+  usage, harness and architecture guides. Ordinary verification checks local links,
+  shell examples, map topology and generated project-entry freshness.
+- Optional Archify source map and rendering helper, pinned to upstream
+  `c6519401f7b91b9d43011657880893b0a8955548`. No renderer/Node packages/global skill
+  were installed or vendored. Its optional update check was disabled.
+
+Focused verification used the declared three-round cap:
+
+1. Embedded Go harness/backend checks and all 14 review unit tests passed. The app
+   suite hit the sandbox's localhost-bind restriction, not an assertion failure.
+   One new Python fixture wrongly assumed `git init --template=` creates an exclude
+   file; the fixture was corrected to supply the existing file it intended to test.
+2. All 30 then-current unit/helper tests passed; four native opt-ins were skipped
+   in that ordinary suite. The authorized localhost-enabled Go harness/app/backend
+   run passed and cleaned its roots. Claude native discovery and transport passed;
+   the Codex fixture failed because its explicitly selected empty CODEX_HOME had not
+   been created. The fixture now creates that directory without global instructions.
+3. Final Go harness/app/backend checks passed (1.300s/4.223s/0.760s), command 0 and
+   cleanup 0. Actual macOS Python 3.9.6 passed 36 unit/helper tests in 6.443s; four
+   native tests were correctly opt-in skips. Linux Python 3.11.2 passed the same 36
+   in 2.749s, four native skips, command 0 and cleanup 0. All four separately enabled
+   installed-CLI localhost tests passed in 4.764s: Claude/Codex context discovery
+   from a subdirectory and both bounded review transports with no I/O tools.
+
+The native tests use disposable profiles and dummy authentication against a
+synthetic local provider. No real model was contacted. They prove delivery and
+tool exposure, not model obedience, a successful substantive review, or live Linux
+vendor compatibility. Mac Git emitted its known temporary-directory fallback warning
+in the legacy trial fixture; those tests passed. Linux Python 3.9 remains untested.
+
+Documentation checks passed: 50 local links, 32 shell examples, map JSON, generated
+entry freshness and whitespace. Archify required two focused geometry corrections:
+label overlap, then desktop projected-text readability. Its final validate/deliver
+passed 9/9 showcase checks, zero errors/warnings. Specification SHA-256:
+`2826a05ebd0c92b0894a30c7fb144e821417096fbc411af8983de9251af24b35`;
+HTML SHA-256 `43956e5dcca8be600842a3931a340eac1317d5179597d1065474d95376d40beb`.
+Browser evidence was explicitly **skipped** because Chrome/Chromium was unavailable;
+no visual-review pass is claimed. The 710,596-byte generated HTML remains only in
+the task's temporary directory, not in source control.
+
+Task artifacts: `/private/tmp/shellmates-harness-deploy.mZT06K`; focused Go wrappers
+and logs reuse the prepared offline cache under
+`/private/tmp/shellmates-publish-20260905.wzkxbf` with unique `deploy-focused-*`
+labels and fresh per-command HOME/XDG/module/build roots. The offline Linux test
+container removed itself. No host packages were installed.
+
+The one-shot frozen pre-push matrix and publication are next. Earlier complete
+matrices remain evidence only for their recorded trees. The historical untracked
+`AUDIT-2026-09-04.md` remains excluded from all commits and publication.
 
 ## Completed tasks
 

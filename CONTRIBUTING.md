@@ -1,6 +1,6 @@
 # Contributing to Shellmates
 
-Shellmates focuses on reliable GNU Screen sessions, clear backend boundaries, SSH reconnection, and straightforward terminal workflows. Keep reusable personal agent instructions, general skills, and model defaults outside this repository; project-specific guidance belongs here.
+Shellmates focuses on reliable GNU Screen sessions, clear backend boundaries, SSH reconnection, and straightforward terminal workflows. The optional project harness ships provider-neutral defaults and two shared skills from one maintained source. Private personal instructions and model defaults stay outside this public repository.
 
 ## Getting started
 
@@ -15,10 +15,14 @@ Use Go 1.26.8, matching CI, and GNU Screen. macOS and Linux are supported; relea
 3. Follow the [verification checklist](.claude/skills/verify/SKILL.md) for the one-shot final pre-push matrix: formatting, modules, shell/workflow validation, normal tests, race tests, vet, four-platform builds/checksums, installer lifecycle, fake-backend Screen lifecycle, and static plugin compatibility. Stop at the first failure and record it; do not silently retry the full matrix.
 4. Update [STATUS.md](STATUS.md) with exact checks, outcomes, and any skipped coverage. Keep changes and verification checkpoints in Git; submit a focused pull request with a short explanation of the user-visible result.
 
-The ordinary Go suite checks generated project guidance without requiring the
-private agent-harness repository. Run `python3 -B -m unittest discover -s scripts/tests -v`
-for the optional trial helper. See [the portable harness trial](docs/HARNESS.md);
-never enroll this public checkout with private personal preferences for publication.
+The ordinary Go suite checks generated project guidance without requiring a private
+repository. After editing project.md, run `python3 -B scripts/sync-project-guidance.py`.
+Run `python3 -B -m unittest discover -s scripts/tests -v` for project-harness lifecycle,
+review and helper tests, and `python3 -B scripts/check-docs.py` for local links and shell examples.
+See [project harness installation](docs/HARNESS.md); never enroll this public
+checkout with private personal preferences for publication. The optional native
+CLI fixture uses `HARNESS_NATIVE_SMOKE=1`, empty temporary profiles and a synthetic
+localhost provider. It does not call a real model or use live authentication.
 
 The opt-in [Linux SSH regression](testdata/ssh/README.md) runs an isolated SSH server and fake backend inside a disposable container. It does not require a real remote host or vendor account. Real vendor login/inference and deployment pilots are separate, explicitly authorized work.
 
@@ -30,6 +34,8 @@ Never use live vendor credentials, transcripts, proxy services, or shell profile
 - `internal/app`, `internal/backend`, and `internal/ui`: command dispatch, vendor boundaries, and terminal interaction.
 - `internal/session`, `internal/screen`, `internal/fssecure`, and `internal/stateroot`: lifecycle and private storage.
 - `internal/config`, `internal/managedsettings`, and `internal/setup`: configuration, optional proxy overlay, install/update/setup/doctor.
+- `internal/harness/assets`: authoritative distributed installer, shared defaults, adapters and skills; embedded by the Go adapter in `internal/harness`.
+- `docs/ARCHITECTURE.md`: architectural boundaries and optional pinned Archify rendering; no Node dependency for normal development/runtime.
 - `testdata`, `scripts`, and `.github/workflows`: test fixtures, release builds, and hosted verification/publication.
 
 Contributions are covered by the repository's [MIT license](LICENSE).

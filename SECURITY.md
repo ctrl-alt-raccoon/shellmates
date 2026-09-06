@@ -25,6 +25,45 @@ Please report vulnerabilities privately through GitHub Security Advisories for t
 
 ## Installer integrity
 
+### Project-local harness
+
+`sclaude harness` installs embedded, versioned instruction/skill sources only into
+an explicit repository. It does not read native authentication, set `CODEX_HOME`,
+change a global instruction file, or create a managed agent session. Python and
+Git must already be installed. Public defaults contain no personal profile.
+Importing a personal rules file requires explicit `--preferences` and local mode.
+Local mode refuses tracked destinations and adds only repository-local exclusions;
+Git ignore is not access control and can be overridden by forced staging or uploads.
+
+Native configuration inheritance still applies. A project harness is not an
+isolation sandbox, a guarantee of model obedience, or authority to execute all
+instructions found in an untrusted repository. Review generated files and existing
+project configuration before trusting them. Unrelated hooks/settings are preserved,
+not audited or disabled by installation.
+
+The installer preflights file/link ownership, locks the project directory and uses
+directory-relative no-follow writes. File symlinks, hardlinks and special files are
+refused. A bounded undo journal supports interrupted operations; invalid journals
+and externally changed files require reconciliation. Restoration metadata contains
+only relevant instruction files, never wholesale profiles, credentials, caches or
+transcripts. This is recoverability, not secure erasure or protection from a hostile
+same-user process. Do not publish or concurrently edit a migration in progress.
+
+The shared review runner previews a bounded, explicitly selected packet before
+`--execute`. Execution uses an empty review directory and disabled I/O tools,
+with native permissions rather than an unsandboxed prompt-only read-only promise.
+It refuses Codex versions lacking the verified image-file-read disable control.
+Native transport tests must be rerun when CLI compatibility changes; a timeout or
+unavailable reviewer is not approval. Source submission is an explicit provider
+disclosure. Authentication remains vendor-owned; there is no automatic review loop.
+
+Archify is optional documentation tooling, not bundled runtime code. The helper
+requires an inspected pinned checkout, disables its update check, and never installs
+global skills, npm packages or a browser. Treat any third-party renderer as code
+executed with your privileges.
+
+### Shellmates binary
+
 Release installation uses exact GitHub release assets and verifies the selected binary against the co-hosted `SHA256SUMS` manifest before execution. That proves the downloaded bytes agree with the manifest but does not independently authenticate either asset or the GitHub release channel. Prefer a pinned tag over mutable `latest`, inspect the downloaded installer before execution, establish tag/commit trust separately, and verify GitHub build provenance when available. Release workflows also publish an SBOM and binary attestations, but `install.sh` does not automatically verify those separate artifacts. Never pipe this repository's mutable `main` branch into a shell, and publish fixes under a new tag rather than replacing existing release bytes.
 
 ## Dependency bootstrap

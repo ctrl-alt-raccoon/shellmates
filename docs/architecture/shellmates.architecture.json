@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Shellmates: sessions and project-local agent context",
+    "locale": "en",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    { "id": "terminal", "type": "external", "label": "Your terminal", "sublabel": "Local or SSH", "pos": [40, 340], "size": [180, 80] },
+    { "id": "dispatch", "type": "backend", "label": "Shellmates", "sublabel": "Dispatch and lifecycle", "pos": [320, 340], "size": [180, 80] },
+    { "id": "screen", "type": "backend", "label": "GNU Screen", "sublabel": "Persistent terminal", "pos": [600, 340], "size": [180, 80] },
+    { "id": "agent", "type": "backend", "label": "Claude / Codex", "sublabel": "Native CLI process", "pos": [880, 340], "size": [180, 80] },
+    { "id": "provider", "type": "external", "label": "Model provider", "sublabel": "Vendor-owned transport", "pos": [1160, 340], "size": [180, 80] },
+    { "id": "harness", "type": "backend", "label": "Harness installer", "sublabel": "Embedded Python bundle", "pos": [320, 90], "size": [180, 80] },
+    { "id": "project", "type": "database", "label": "Project context", "sublabel": "Rules, adapters, two skills", "pos": [880, 90], "size": [180, 80] },
+    { "id": "state", "type": "database", "label": "Private session state", "sublabel": "Topics and lifecycle only", "pos": [320, 590], "size": [180, 80] }
+  ],
+  "connections": [
+    { "id": "terminal-dispatch", "from": "terminal", "to": "dispatch", "label": "invoke", "variant": "emphasis" },
+    { "id": "dispatch-screen", "from": "dispatch", "to": "screen", "label": "manage", "variant": "emphasis" },
+    { "id": "screen-agent", "from": "screen", "to": "agent", "label": "PTY", "variant": "emphasis" },
+    { "id": "agent-provider", "from": "agent", "to": "provider", "label": "vendor API", "variant": "emphasis" },
+    { "id": "dispatch-harness", "from": "dispatch", "to": "harness", "label": "harness command" },
+    { "id": "harness-project", "from": "harness", "to": "project", "label": "install / update" },
+    { "id": "project-agent", "from": "project", "to": "agent", "label": "native discovery", "labelDy": 24 },
+    { "id": "dispatch-state", "from": "dispatch", "to": "state", "label": "lifecycle records", "labelDy": 24 }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Session boundary", "items": ["Detach and reconnect to a running terminal.", "Noninteractive commands bypass Screen."] },
+    { "dot": "emerald", "title": "Project boundary", "items": ["One shared source feeds thin native adapters.", "No global agent configuration is installed."] },
+    { "dot": "rose", "title": "Provider boundary", "items": ["Native CLIs own auth, permissions and conversations.", "The optional Claude proxy route is documented separately."] }
+  ]
+}

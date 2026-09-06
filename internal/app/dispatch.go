@@ -20,6 +20,7 @@ import (
 
 	"github.com/ctrl-alt-raccoon/shellmates/internal/backend"
 	"github.com/ctrl-alt-raccoon/shellmates/internal/config"
+	"github.com/ctrl-alt-raccoon/shellmates/internal/harness"
 	"github.com/ctrl-alt-raccoon/shellmates/internal/managedsettings"
 	screenpkg "github.com/ctrl-alt-raccoon/shellmates/internal/screen"
 	"github.com/ctrl-alt-raccoon/shellmates/internal/session"
@@ -189,6 +190,7 @@ Commands:
   stop                    Stop a managed session
   prune                   Remove stopped session records
   setup                   Configure selected backends (including native Codex)
+  harness                 Install/check/update/remove project-local rules and skills
   doctor                  Check the configured runtime
   verify                  Verify the managed proxy
   update                  Install a published release
@@ -305,6 +307,8 @@ func runLaunch(ctx context.Context, backendName string, args []string, ioSet IO)
 func runSubcommand(ctx context.Context, args []string, ioSet IO, version, defaultBackend string) int {
 	command, commandArgs := args[0], args[1:]
 	switch command {
+	case "harness":
+		return harness.Run(ctx, commandArgs, ioSet.In, ioSet.Out, ioSet.Err)
 	case "help":
 		if ok, code := parseNoArgs(command, commandArgs, ioSet.Err); !ok {
 			return code
@@ -1011,7 +1015,7 @@ func executeBackend(runtimeConfig config.Runtime, backendName string, args, env 
 
 func isSubcommand(value string) bool {
 	switch value {
-	case "help", "sessions", "list", "new", "attach", "stop", "prune", "doctor", "verify", "setup", "update", "rollback", "uninstall", "version", "_run-session", "_install-release":
+	case "help", "sessions", "list", "new", "attach", "stop", "prune", "doctor", "verify", "setup", "harness", "update", "rollback", "uninstall", "version", "_run-session", "_install-release":
 		return true
 	}
 	return false
