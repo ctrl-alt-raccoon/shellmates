@@ -2,7 +2,87 @@
 
 Updated: 2026-09-06
 
-## Latest publication gate — stopped at isolated Claude discovery, not pushed
+## Latest publication gate — Screen shutdown race, not pushed
+
+The user authorized fixing the verification issue and pushing. The temporary
+runner now exposes the already-installed Claude/Codex executables through a
+task-private bin directory. No native profiles, global PATH, package installation
+or application source was changed. Preparation used three focused rounds:
+
+- Both executable paths resolved: Claude 2.1.263 and Codex 0.153.4. Go 1.26.8 and
+  actual macOS Python 3.9.6 were available. Screen 4.00.03 printed its valid
+  version banner but returned 1 for `--version`; this is recorded rather than
+  mistaken for a missing executable.
+- Four native localhost fixtures passed in 4.112s. A disposable build succeeded;
+  its project harness delivered instructions and both skills through real Screen
+  to both native CLIs using only synthetic responses. The offline Linux image
+  preflight passed with Go 1.26.8 and Python 3.11.2.
+- The separate temporary runtime helper needed its intended fake claudex backend
+  enabled, explicit `stop --yes`, `prune --all-stopped`, and normalization of an
+  empty JSON session result (`null`) to an empty list. Its final focused attempt
+  passed runtime, direct-mode and all six doctor assertions, then exposed that
+  last cleanup-only JSON handling error. The normalization was corrected before
+  freezing, without a fourth focused run. The earlier fixture's three recorded
+  process IDs were confirmed absent. These were helper corrections, not product
+  patches; no assertion was weakened or failure hidden.
+
+The new complete matrix ran once against exported checkpoint `1909d75` (application
+source unchanged from `388e459`). Task directory:
+`/private/tmp/shellmates-final-20260906.HN7noL`. Archive SHA-256:
+`9cda65a9ae8c8fef8dbde0100824c0b97c3b17686b7f7b4620284d4098492d4e`.
+
+Executed gates, in order; each observed command/cleanup status was 0/0 until the
+explicit failure below. Each Go command had its own HOME/XDG/module/build roots;
+Linux used a disposable, read-only, network-disabled container.
+
+1. Static: Go formatting and module verification; POSIX syntax and ShellCheck;
+   workflow YAML/project JSON; 50 documentation links, 32 shell examples, map JSON;
+   generated instruction freshness; both shared skill metadata; whitespace passed.
+2. macOS `go test ./...`, `go test -race ./...`, `go vet ./...`: all passed,
+   separately invoked and checked.
+3. macOS `/usr/bin/python3 -B -m unittest discover -s scripts/tests -v`: Python
+   3.9.6, 36 passes and four intended native opt-in skips, 5.889s. The legacy helper
+   produced the known Git temporary-directory fallback warning; its tests passed.
+4. macOS `HARNESS_NATIVE_SMOKE=1 python3 -B -m unittest discover -s scripts/tests
+   -p test_harness_native.py -v`: four passes in 4.672s, including both providers'
+   nested project discovery and bounded review transports with no I/O tools.
+5. Linux `go test ./...`, `go test -race ./...`, `go vet ./...`: all passed,
+   separately invoked and checked.
+6. Linux `python3 -B -m unittest discover -s scripts/tests -v`: Python 3.11.2,
+   36 passes, four native opt-in skips, 2.615s.
+7. `CGO_ENABLED=0 GOOS=... GOARCH=... govulncheck ./...` for each of darwin/arm64,
+   darwin/amd64, linux/arm64, linux/amd64: no vulnerabilities found in all four.
+8. `sh scripts/build-release.sh v0.0.0-check.1909d75`: four builds passed, exact
+   six-asset set verified, all five SHA-256 entries verified, Mach-O/ELF target
+   architectures confirmed. These remain temporary artifacts, not a release.
+9. `SCLAUDE_RELEASE_INTEGRATION=1 go test -count=1 ./internal/setup`: passed on
+   macOS (14.866s) and Linux (1.210s), including candidate-owned migration and
+   installation/update/rollback/uninstall/purge/ownership/journal tests.
+10. macOS `SCLAUDE_SCREEN_INTEGRATION=1 go test -count=1 -run
+    '^(TestRealScreenLifecycle|TestNativeCodexScreenLifecycle)$'
+    ./internal/screen ./internal/app`: low-level Screen passed (0.913s), native
+    integration failed at `native_integration_test.go:156` during `stop --yes`:
+    `stop screen: exit status 1: No screen session found.` Command 1, cleanup 0;
+    the matrix stopped here, with no remote mutation or push.
+
+Read-only diagnosis identified a list/quit race in `Manager.Stop`: it waits for
+the runner's backend-exit acknowledgement, lists a remaining Screen socket, then
+Screen can close naturally before `quit` is delivered. Even when the subsequent
+probe confirms absence and the session is recorded stopped, the method still
+returns the stale control error via `errors.Join(stopErr, updateErr)`. A fix must
+preserve both independent requirements: backend-exit acknowledgement and confirmed
+socket absence. Missing sockets alone must never certify backend exit, and a
+surviving socket or ambiguous probe must still fail and remain pending.
+
+Not run after the stop: Linux real-Screen integration, isolated SSH reconnect,
+final fake-backend build, built-release runtime/doctor/native-Screen probes,
+explicit proxy/plugin gate, optional Archify rerender, final publication scan and
+hosted CI. The original harness and global agent configuration remain untouched;
+the private untracked audit remains excluded. GitHub main was refreshed read-only
+at `e29cdeb4c19862d0e4c29d8ee5c27ac3bf26cb7f` and is an ancestor. A repair and new
+complete run require a new authorized checkpoint; this stopped matrix is not green.
+
+## Previous publication gate — stopped at isolated Claude discovery, not pushed
 
 The user explicitly authorized the two-line ShellCheck correction, one fresh
 complete verification matrix, and the non-forced GitHub push if verification
