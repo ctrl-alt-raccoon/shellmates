@@ -217,8 +217,11 @@ func (m Manager) Stop(ctx context.Context, selector string) error {
 		// retries remain possible and prune/uninstall cannot orphan the session.
 		return errors.Join(stopErr, err)
 	}
+	// Backend exit and socket absence are independently confirmed. Screen may
+	// have exited between List and quit, so its control error is now obsolete.
+	// Durable finalization can still fail and must remain visible to the caller.
 	_, updateErr := m.Store.stop(record.ID, m.now(), "stopped-by-manager")
-	return errors.Join(stopErr, updateErr)
+	return updateErr
 }
 
 func (m Manager) stopTimeout() time.Duration {

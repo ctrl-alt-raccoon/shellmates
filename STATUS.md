@@ -1,6 +1,67 @@
 # Status checkpoint
 
-Updated: 2026-09-06
+Updated: 2026-09-07
+
+## Shutdown race repair — reviewed and focused-tested
+
+The user explicitly requested investigation, implementation, independent review
+and proper testing of the shutdown failure. This is a new repair scope after the
+stopped matrix below. Cap: three focused rounds, one independent review before
+freezing, then one fresh complete matrix. Prior push authorization remains scoped
+to the Shellmates GitHub repository; no release, tag or deployment is authorized.
+
+Root cause: after the runner acknowledged backend exit, Screen could close
+between the manager's socket listing and its quit command. The manager correctly
+confirmed absence and finalized the record, but returned the obsolete quit error.
+`Manager.Stop` now returns the durable finalization result after both independent
+exit checks succeed. No diagnostic-text special case, retry loop, timeout change,
+PID signalling, backend argument change or weaker liveness check was introduced.
+
+Deterministic tests cover modern and legacy socket-disappearance races, surviving
+sockets, failed/ambiguous probes, finalization failure, and preservation of an
+unrelated socket. The existing missing-socket cases now also call Stop for each
+running/stopping/stopped/failed state and require an unconfirmed-backend error.
+
+Focused evidence (all disposable HOME/XDG/cache roots cleaned):
+
+1. Before the production change, the desired-behavior regression failed only at
+   confirmed socket disappearance (`Screen control failed`); the other negative
+   cases passed. Command 1, cleanup 0. This is a deliberate red regression test,
+   not a stopped complete-matrix attempt.
+2. After the repair, `go test -race -count=10 ./internal/session` passed (13.937s).
+   macOS `SCLAUDE_SCREEN_INTEGRATION=1 go test -race -count=20 -run
+   '^(TestRealScreenLifecycle|TestNativeCodexScreenLifecycle)$'
+   ./internal/screen ./internal/app` passed (2.427s / 47.693s).
+   Offline Linux `SCLAUDE_SCREEN_INTEGRATION=1 go test -race -count=20
+   ./internal/session ./internal/screen ./internal/app` passed (4.895s / 2.639s /
+   57.779s). These exercised fixture backends, never real vendor inference.
+3. One real Claude review completed successfully using the installed cross-review
+   runner: a 99,966-byte inspected requirements/diff/code/test packet, configured
+   native model/effort defaults, 600-second ceiling, no reviewer I/O tools and an
+   empty working directory. The verdict was no confirmed defects in the supplied
+   scope. A low-severity legacy-path coverage gap was addressed with one additional
+   regression case; the final session suite passed another ten race-enabled
+   repetitions (14.112s). No further reviewer pass was run.
+
+The reviewer did not run tests and did not receive fssecure/stateroot, the runner
+implementation or app stop-command implementation. Its uncertainty about the
+missing-record error path is covered by the executed finalization-failure test;
+the caller/runtime paths are covered by the real Screen tests. Its adjacent note
+about confirmStopped's fallback timeout is pre-existing and deferred, not a reason
+to expand this repair. Full review output remains in the private task directory.
+
+Temporary final-matrix runtime/native-Screen helpers were preflighted against the
+repaired binary. Runtime PID/launch/stop, direct sclaude/sclaudex streams and exit,
+all six doctor checks, and both providers' project-context/skill delivery through
+Screen passed with cleanup 0. The native helper now prunes naturally completed
+sessions rather than incorrectly stopping an already-terminal session. Native
+delivery uses synthetic localhost responses; only the explicit independent review
+contacted a real reviewer. Authentication stayed vendor-owned; no credential files
+were inspected/copied and no global configuration was intentionally changed.
+
+Task artifacts: `/private/tmp/shellmates-stop-fix-20260907.lXaLn0`. The private
+untracked audit is excluded. The complete frozen matrix for this repair is next;
+the prior matrix does not certify this changed source.
 
 ## Latest publication gate — Screen shutdown race, not pushed
 
