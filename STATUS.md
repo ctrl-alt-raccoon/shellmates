@@ -2,6 +2,85 @@
 
 Updated: 2026-09-07
 
+## Documentation/artwork verification passed; full model review still incomplete
+
+The documentation and artwork are committed at `35de401`. One complete frozen
+publication matrix passed, with 25 actual gates, all command/cleanup statuses 0/0
+and no gate retried. No application, harness, CI or configuration code changed
+relative to `e0aa28e`. Only STATUS.md changed after this matrix. The unavailable
+Fable 5.1 review below remains unavailable; passing these checks is not a model
+review or a whole-codebase sign-off.
+
+Frozen source: `/private/tmp/shellmates-full-review-20260907.oAQw8a/frozen`.
+Archive SHA-256:
+`e860bfc31e197f2d5f5d9f8a6377ae2e37b856376065540e2efcc256cb173498`.
+After verification, all 132 tracked exported files matched the archive. Logs are
+under that task directory's `logs/`. Temporary HOME/XDG/Screen/module/build roots
+were removed; Linux containers were read-only, network-disabled and removed after
+each command. No global installation, credential inspection or profile edit occurred.
+
+Executed checks, in order:
+
+1. `sh static.sh` via the isolated wrapper: Go formatting/module verification,
+   shell syntax/ShellCheck, workflow YAML/project JSON, documentation links/examples,
+   map JSON, generated native-entry freshness and both skills' metadata passed.
+2. macOS `go test ./...`, `go test -race ./...`, `go vet ./...`: each passed in
+   its own disposable root (`mac-test`, `mac-race`, `mac-vet`).
+3. macOS `/usr/bin/python3 -B -m unittest discover -s scripts/tests -v`: actual
+   Python 3.9.6, 36 passes plus four native opt-in skips, 5.386s.
+4. macOS `HARNESS_NATIVE_SMOKE=1 python3 -B -m unittest discover -s scripts/tests
+   -p test_harness_native.py -v`: four passes, 3.684s. Installed Claude/Codex
+   context discovery and restricted review transports used synthetic localhost
+   providers, not real reviewer inference.
+5. Linux `go test ./...`, `go test -race ./...`, `go vet ./...`: each passed
+   independently (`linux-test`, `linux-race`, `linux-vet`).
+6. Linux `python3 -B -m unittest discover -s scripts/tests -v`: Python 3.11.2,
+   36 passes plus four native opt-in skips, 2.647s. Linux Python 3.9 is unverified.
+7. Four separate `CGO_ENABLED=0 GOOS=... GOARCH=... govulncheck ./...` commands:
+   darwin/arm64, darwin/amd64, linux/arm64, linux/amd64 all found no vulnerabilities.
+8. `sh release-check.sh`, invoking `sh scripts/build-release.sh
+   v0.0.0-check.35de401`: four target builds, exact six-asset set, all five SHA-256
+   entries and Mach-O/ELF architectures passed. No release was published.
+9. `SCLAUDE_RELEASE_INTEGRATION=1 go test -count=1 ./internal/setup`: passed on
+   macOS (14.182s) and Linux (1.317s), including installation/update/rollback,
+   uninstall/purge, ownership/journal recovery and candidate migration.
+10. `SCLAUDE_SCREEN_INTEGRATION=1 go test -count=1 -run
+    '^(TestRealScreenLifecycle|TestNativeCodexScreenLifecycle)$'
+    ./internal/screen ./internal/app`: macOS 0.593s / 2.772s; Linux 0.118s /
+    0.803s. All passed with fixture backends.
+11. Offline Linux `SCLAUDE_SSH_INTEGRATION=1 go test -race -count=1 -v -run
+    '^TestLinuxSSHReconnect$' ./internal/app`: passed, 11.085s. Unprivileged setup,
+    two abrupt SSH disconnects, same-backend reconnect/input, acknowledged stop
+    and prune passed. This is not a real-vendor/target-host or silent half-open test.
+12. `go build -o <task>/artifacts/fake-backend ./testdata/fake-backend`: passed.
+13. `python3 -B <task>/runtime-check.py`: built release through real Screen to
+    the fake backend; PID/one-use launch/stop/socket checks, direct sclaude/sclaudex
+    streams and exit 7, and all six doctor checks passed.
+14. `python3 -B <task>/native-screen.py`: built-release harness installation/check,
+    project context and both skills through Screen to both installed CLIs passed.
+    Both synthetic-provider sessions ended and were cleaned (`release-native-screen`).
+15. `go test -count=1 -v -run
+    '^(TestProjectCodexPluginDeclaration|TestProjectAgentGuidance|TestManagedProxyCommand|TestCommandVerify.*|TestVerifyProxyModelsRequiresManagedModels|TestFetchProxyModelsRejectsOversizedOrTrailingJSON|TestVerifyProxyInferenceValidatesResponse)$'
+    ./internal/backend ./internal/app ./internal/setup`: all passed (0.335s /
+    0.441s / 0.496s). Only static plugin declarations and authenticated localhost
+    fixtures were used; no plugin code was installed, loaded or executed.
+16. `python3 -B <task>/docs-check.py`: 54 local links, 32 shell examples, map JSON,
+    native-entry freshness, exact supplied-artwork hash/dimensions, GitHub-rendered
+    HTML image/alt/width references and SVG structure/readability assertions passed.
+
+Preparation correction: a pre-start Git check accidentally ran in the exported
+directory, which has no `.git`, and exited 129 before the static wrapper launched.
+It was corrected to an explicit checkout `git -C` path. The static gate and every
+subsequent gate then ran once; no assertion was weakened or failure hidden.
+
+Publication hygiene: the one-commit `origin/main..HEAD` gitleaks scan found no leaks
+(approximately 16.52 KB of textual changes). The image's displayed content and
+unchanged SHA-256 were checked separately; the private audit is not tracked.
+`git fetch --no-tags origin main` confirmed main is still `e0aa28e`, an ancestor
+of the documentation checkpoint. A normal SSH push is authorized by the user's
+GitHub-artwork request. This is the pre-push verification record; hosted CI for
+these documentation commits is observed separately, not inferred from local tests.
+
 ## Full-codebase review attempt and clearer project presentation
 
 The user requested a complete Fable 5.1 review, a simpler architecture view,
@@ -64,9 +143,9 @@ approved system-thumbnail invocation succeeded. This is not a browser screenshot
 
 Task artifacts: `/private/tmp/shellmates-full-review-20260907.oAQw8a`, including the
 frozen review source, packet manifest/hash, one-invocation adapter and local visual
-proof. They are not part of publication. Final documentation checks and the new
-frozen publication matrix follow this preparation checkpoint; earlier results
-remain scoped to their recorded source.
+proof. They are not part of publication. The later documentation checks and frozen
+publication matrix are recorded above; earlier results remain scoped to their
+recorded source.
 
 ## Publication — pushed; hosted verification passed
 
@@ -1036,7 +1115,7 @@ or real-model review was repeated.
    report; neither model identity nor whole-codebase approval is verified.
 2. Complete the real Linux/SSH backend pilot, including native arguments,
    reconnect, clean shutdown and a genuinely half-open transport. The current
-   local Mac/Linux matrix for `23265c3` passed. Do not rerun it merely because
+   local Mac/Linux matrix for `35de401` passed. Do not rerun it merely because
    external pilot work remains. Linux Python 3.9 is still unverified.
 3. The supported project-local harness install/check/update/remove/recover
    interface is implemented, documented in docs/HARNESS.md and verified through
