@@ -1,8 +1,26 @@
-# Optional Claude/CLIProxyAPI route
+# sclaudex: Claude Code workflow, OpenAI models
 
 [Overview](../README.md) · [Native setup](INSTALLATION.md) · [Usage](USAGE.md)
 
-This is optional. Native Claude and native Codex do not need CLIProxyAPI.
+This optional route is for people who want **Claude Code's agent harness with
+OpenAI/Codex models behind it**. Native Claude (`sclaude`) and native Codex
+(`scodex`) do not need CLIProxyAPI.
+
+## Why use it?
+
+- Keep the Claude Code commands, supported tools, skills and project conventions
+  you already use while asking OpenAI models to do the reasoning.
+- Try another model route without switching your day-to-day agent interface.
+- Keep the same Shellmates detach/reconnect workflow and project-local instructions.
+
+Choose native `scodex` when you want Codex CLI's own tools, settings, permissions
+and features. `sclaudex` does not turn Claude Code into Codex CLI, guarantee model
+feature parity, or promise a price/performance advantage. It adds a proxy service,
+authentication and model mappings to maintain. Provider terms still apply.
+
+Here, **agent harness** means Claude Code's runtime and tool loop. The optional
+**Shellmates project harness** is the separate shared-instructions/skills layer;
+you can use it with native Claude, native Codex or managed `sclaudex`.
 
 ## `sclaudex` direction
 
@@ -15,7 +33,9 @@ sclaudex
   -> ChatGPT/Codex backend and models
 ```
 
-This is **not** Codex CLI running Claude models. The wrapper does not read or modify `~/.codex/`; native `scodex` launches deliberately let Codex manage its own files.
+OpenAI models generate the responses; Claude Code remains the program executing
+tools and applying its permission controls. The wrapper does not read or modify
+`~/.codex/`; native `scodex` launches deliberately let Codex manage its own files.
 
 > **Authentication limitation:** an active Claude apps gateway sign-in takes precedence over `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_API_KEY`, cloud-provider selectors, and other per-invocation credentials. In that state Claude Code ignores the localhost proxy credentials that managed `sclaudex` supplies, so the route shown above does not apply. Sign out of the Claude apps gateway with `claude auth logout` (or `/logout` inside Claude Code), then authenticate again later when you need the gateway. `sclaudex` never logs you out or changes Claude Code's saved authentication state.
 >

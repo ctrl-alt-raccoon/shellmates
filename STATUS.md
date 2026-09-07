@@ -2,6 +2,72 @@
 
 Updated: 2026-09-07
 
+## Full-codebase review attempt and clearer project presentation
+
+The user requested a complete Fable 5.1 review, a simpler architecture view,
+clearer launcher/benefit explanations and their supplied image as GitHub project
+artwork. This is a new documentation/review scope after the published checkpoint
+below. Cap: one independent reviewer invocation, at most three focused correction
+rounds, then one frozen publication matrix. No application, harness, configuration
+or CI implementation has changed in this scope.
+
+Review status: **unavailable, not passed**. The installed cross-review skill's
+128 KiB limit could not contain the repository. A task-local adapter reused its
+packet builder/rubric, no-tools Claude command, bounded process cleanup and result
+parser, with a disclosed 2 MiB packet cap for this full-tree request. The installed
+skill and global configuration were unchanged. One 1,198,705-byte packet included
+all 129 tracked implementation/test/configuration/instruction/documentation files
+from exact commit `e0aa28ea36390610a4349b29dd900887054a4b28`; only STATUS.md was
+excluded to avoid forwarding previous review conclusions. The untracked private
+audit, live configuration, credentials, transcripts and dependencies were excluded.
+
+The explicit model argument was
+[`claude-fable-5-1`](https://platform.claude.com/docs/en/models/fable-5-1/overview),
+not a default or alias; effort remained the native default. The invocation used
+safe mode, an empty tool set, strict empty MCP configuration, dontAsk permissions,
+no session persistence, an empty temporary working directory, a 600-second limit
+and a $15 API-budget guard. Packet SHA-256:
+`c475133605a68868bb68020cc212078f52b49c729f7c59d1f53e136beddfcc06`.
+Gitleaks scanned the full packet and found no leaks. At 600 seconds, the bounded
+runner terminated its owned process group and returned `Review interrupted or
+timed out; no review result` (command 1). No completed findings or model-usage
+receipt were returned, so actual model identity and review coverage cannot be
+certified. There was no automatic retry. A longer or differently divided review
+needs a separately authorized pass; no whole-codebase sign-off is claimed.
+
+Documentation/artwork changes:
+
+- The unchanged user-supplied 1254 x 1254 PNG is `docs/artwork/shellmates.png`,
+  displayed at 380 px in the README with alt text. SHA-256:
+  `5b8686d97a784f25b6950eaa6d7b004eb33b313edb3fd6780e1dbebb84af505f`.
+  This is repository/README artwork; GitHub's separate social-preview setting
+  has not been changed.
+- A self-contained 760 x 458 SVG replaces the wide onboarding graph. It shows
+  the three launcher routes with 17–26 px text and no scripts/external resources.
+  The detailed Archify component map remains optional maintainer reference.
+- The instruction diagram is reduced to three nodes; the wide shutdown sequence
+  is now four numbered steps. The README leads with practical benefits and an
+  early launcher comparison. Managed sclaudex is explicitly Claude Code's agent
+  runtime using OpenAI/Codex models through CLIProxyAPI, not native Codex CLI.
+  External claudex ownership, proxy-authentication limits and the distinction
+  from the Shellmates project harness remain explicit. No price/performance or
+  complete native-feature-parity promise was added.
+
+Focused evidence: the isolated `docs-check.py` passed with command 0 and cleanup 0
+(54 local links, 32 shell examples, map JSON, zero errors; unchanged artwork hash,
+native-entry freshness and SVG/HTML assertions). Git whitespace passed. GitHub's
+read-only Markdown renderer retained the artwork width/alt text and SVG reference.
+Quick Look rendered the SVG and visual inspection at 760 px found readable labels;
+one missing arrowhead was corrected and the refreshed preview inspected. The first
+sandboxed Quick Look invocation returned 255 before rendering; the explicitly
+approved system-thumbnail invocation succeeded. This is not a browser screenshot.
+
+Task artifacts: `/private/tmp/shellmates-full-review-20260907.oAQw8a`, including the
+frozen review source, packet manifest/hash, one-invocation adapter and local visual
+proof. They are not part of publication. Final documentation checks and the new
+frozen publication matrix follow this preparation checkpoint; earlier results
+remain scoped to their recorded source.
+
 ## Publication — pushed; hosted verification passed
 
 The reviewed repair `23265c3` and frozen verification checkpoint `9e2370f` were
@@ -965,15 +1031,18 @@ or real-model review was repeated.
 
 ## Remaining tasks
 
-1. Complete the real Linux/SSH backend pilot, including native arguments,
+1. Complete the requested full-codebase Fable 5.1 review in a newly authorized
+   bounded pass. The single 600-second full-packet attempt timed out without a
+   report; neither model identity nor whole-codebase approval is verified.
+2. Complete the real Linux/SSH backend pilot, including native arguments,
    reconnect, clean shutdown and a genuinely half-open transport. The current
    local Mac/Linux matrix for `23265c3` passed. Do not rerun it merely because
    external pilot work remains. Linux Python 3.9 is still unverified.
-2. The supported project-local harness install/check/update/remove/recover
+3. The supported project-local harness install/check/update/remove/recover
    interface is implemented, documented in docs/HARNESS.md and verified through
    both native CLIs. The legacy trial helper is not the deployment interface.
    Private preferences remain explicit project-local input, never public defaults.
-3. Publication and hosted CI are complete for the reviewed implementation, as
+4. Publication and hosted CI are complete for the reviewed implementation, as
    recorded above. No further repair gate is pending; any tag, release or
    deployment remains separately authorized work.
 
@@ -996,6 +1065,9 @@ or real-model review was repeated.
 
 ## Backlog
 
+- Update the pinned checkout/setup-go actions' deprecated Node.js runtime in a
+  separately verified maintenance task. Hosted CI reported a non-blocking warning
+  while all three jobs passed; the documentation refresh does not alter CI pins.
 - Add local `actionlint` coverage in a future task if a trusted installation path is selected; do not block this task on installing it.
 - Consider automating GitHub attestation verification in the installer in a future release, with a separately reviewed trust model.
 - Project-local harness deployment and Codex guidance are implemented; do not expand them into automatic vendor-config migration or a new orchestration layer.

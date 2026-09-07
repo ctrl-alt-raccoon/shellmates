@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/artwork/shellmates.png" width="380" alt="Shellmates: two shell-shaped terminals. Persist, connect, collaborate.">
+</p>
+
 # Shellmates
 
 **Keep your coding agents running. Bring the same working habits to every project.**
@@ -7,8 +11,9 @@ Start work locally or over SSH, detach, and reconnect to the same running agent.
 Its optional project harness gives both agents shared instructions, handovers and
 explicit cross-review, without installing global agent configuration.
 
-Small tools, clear boundaries: GNU Screen keeps the terminal alive; native CLIs
-own authentication, permissions and conversations; the harness owns project context.
+Use Claude Code, native Codex, or **Claude Code powered by OpenAI models**.
+Shellmates keeps the session running and the project instructions consistent;
+you choose the coding agent and model route.
 
 [Get started](#build-from-source) · [Project harness](docs/HARNESS.md) ·
 [Usage](docs/USAGE.md) · [Architecture](docs/ARCHITECTURE.md) ·
@@ -16,14 +21,45 @@ own authentication, permissions and conversations; the harness owns project cont
 
 ## What you get
 
-- **Persistent sessions:** topics, session listing, detach, attach, and explicit takeover.
-- **Native Claude and Codex:** original arguments and vendor settings, with no flag translation.
-- **A project-local harness:** install, check, update and remove shared rules and skills.
-- **One useful skill set:** handover and permission-bounded Claude ↔ Codex review.
-- **Conservative lifecycle handling:** uncertain shutdown stays visible; it is not silently pruned.
-- **Portable deployment:** macOS and Linux, amd64 and arm64; no separate harness checkout required.
+- **Leave and come back to the same work.** Detach before closing your terminal,
+  or reconnect after an ordinary SSH disconnect. Your agent stays on the host;
+  a named session gets you back to it without starting another conversation.
+- **Choose the workflow as well as the model.** Keep native Claude or Codex, or
+  use Claude Code's workflow with OpenAI models through the optional proxy route.
+- **Stop re-explaining each repository.** Install shared working agreements,
+  `project.md`, handover and cross-review once per project. Claude and Codex get
+  the same maintained sources; you do not need matching global configurations.
+- **Get a second opinion deliberately.** Ask Claude to review Codex's work, or
+  the reverse, through one explicit permission-bounded review. No agent fleet.
+- **Keep setup portable and reversible.** The harness travels with the project,
+  has install/check/update/remove commands, and needs no separate harness checkout.
+  Shellmates supports macOS/Linux on amd64/arm64.
 
 No background agent fleet, recursive reviewer loop, Beads requirement, or mandatory proxy.
+
+## Pick your launcher
+
+| Command | Agent workflow and tools | Model route | Choose it when… |
+|---|---|---|---|
+| `sclaude` | Claude Code | Claude's configured provider | You want the native Claude experience. |
+| `scodex` | Codex CLI | Codex's configured provider | You want native Codex, including its own settings and permissions. |
+| `sclaudex` (managed) | **Claude Code** | **CLIProxyAPI → OpenAI/Codex models** | You want OpenAI models inside the Claude Code workflow you already use. |
+
+**`sclaudex` is Claude Code as the agent harness, with OpenAI models behind it.
+It is not the Codex CLI.** This lets you keep supported Claude commands, tools,
+skills and project conventions while changing the model route. It does not give
+you Codex CLI's native features, guarantee complete feature parity, or promise
+lower cost or better results. It adds a proxy and its authentication/setup needs.
+
+If setup adopts an existing external `claudex`, Shellmates runs that executable
+unchanged; the managed-route description does not define its behavior.
+An existing Claude gateway sign-in can also override proxy routing. Read the
+[proxy guide and routing check](docs/PROXY.md#sclaudex-direction) before using it.
+
+The **Shellmates project harness** is a different, optional layer: shared files and
+skills for your repositories. It works with native Claude, native Codex and managed
+`sclaudex`, including Claude or Codex started directly. It does not replace either
+vendor's agent runtime.
 
 ## Build from source
 
@@ -100,36 +136,20 @@ does not make it private. Personal preferences are never imported automatically.
 
 ## Architecture
 
-Two paths share one entry point, not one giant agent runtime:
+One persistent terminal layer, three explicit ways to run your coding agent:
 
-```mermaid
-flowchart LR
-    T["Local terminal / SSH"] --> S["Shellmates"]
-    S -->|"managed session"| G["GNU Screen"]
-    G --> C["Native Claude / Codex"]
-    S -->|"noninteractive command"| C
-    C --> P["Model provider"]
-    S -->|"explicit harness command"| H["Project installer"]
-    H --> R["Rules + project.md + shared skills"]
-    R -.->|"native discovery"| C
-```
+![Shellmates keeps a terminal session alive around native Claude, native Codex, or Claude Code using OpenAI models through CLIProxyAPI.](docs/architecture/overview.svg)
 
-The harness is configuration and explicit workflows, **not a replacement for the
-vendor CLI or a security sandbox**. Existing global instructions can still apply.
-Native credentials are neither copied nor rewritten.
+This is the managed interactive-session path. Noninteractive commands run directly,
+without Screen. The native agents own their tools, permissions and conversations.
+The optional project harness supplies instructions and skills; it is **not a
+security sandbox**, and existing global instructions can still apply.
 
-See [the architecture guide](docs/ARCHITECTURE.md) for instruction ownership,
-shutdown flow, source paths, and an optional **Archify interactive map**.
-Archify is pinned, opt-in documentation tooling; it is not a runtime dependency
-and is never installed globally by Shellmates.
+See [the architecture guide](docs/ARCHITECTURE.md) for the small instruction-flow
+diagram, shutdown steps and source paths. The detailed Archify map is optional
+developer reference, not something you need to open or zoom into to get started.
 
-## Three launchers, distinct meanings
-
-| Command | What runs | Configuration owner |
-|---|---|---|
-| `sclaude` | Native Claude Code | Claude |
-| `scodex` | Native Codex CLI | Codex |
-| `sclaudex` | Claude through the optional CLIProxyAPI route, or an existing opaque `claudex` | Explicit proxy/external setup |
+## Command names and arguments
 
 The project is called **Shellmates**, but these command names remain compatibility
 contracts. There is no separate `shellmates` executable. Source builds produce
@@ -140,10 +160,6 @@ Codex `-p` means **profile**; Claude `-p` means **print**. Put vendor arguments 
 `new`'s `--`, and they are forwarded unchanged. Use `sclaude harness` for harness
 management; `scodex update` still belongs to Codex. Codex's own status line remains
 untouched. [Argument and dispatch details](docs/INSTALLATION.md#native-codex-arguments-and-command-names)
-
-The optional `sclaudex` route is **Claude Code using another model provider**, not
-Codex CLI running Claude. Authentication precedence can affect routing; read the
-[proxy guide](docs/PROXY.md) before relying on it.
 
 ## Reliability and limits
 

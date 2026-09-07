@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="458" viewBox="0 0 760 458" role="img" aria-labelledby="title description">
+  <title id="title">Shellmates: one session layer, three agent routes</title>
+  <desc id="description">A local or SSH terminal connects to Shellmates and GNU Screen. The session runs sclaude with Claude Code, scodex with Codex CLI, or managed sclaudex with Claude Code using OpenAI models through CLIProxyAPI. Native Claude and Codex keep their configured provider routes.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#28796d"/>
+    </marker>
+  </defs>
+  <rect width="760" height="458" rx="18" fill="#f6faf9"/>
+  <g font-family="system-ui, -apple-system, Segoe UI, sans-serif" text-anchor="middle" fill="#102b36">
+    <rect x="210" y="18" width="340" height="60" rx="12" fill="#ffffff" stroke="#537980" stroke-width="2"/>
+    <text x="380" y="55" font-size="23" font-weight="600">Your terminal · local or SSH</text>
+    <path d="M380 80 V110" fill="none" stroke="#28796d" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <rect x="180" y="120" width="400" height="88" rx="12" fill="#d8f5e9" stroke="#28796d" stroke-width="2"/>
+    <text x="380" y="153" font-size="25" font-weight="700">Shellmates + GNU Screen</text>
+    <text x="380" y="184" font-size="21">Keeps your agent session running</text>
+    <path d="M380 209 V234 M130 234 H630" fill="none" stroke="#28796d" stroke-width="2.5"/>
+    <path d="M130 234 V254" fill="none" stroke="#28796d" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <path d="M380 234 V254" fill="none" stroke="#28796d" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <path d="M630 234 V254" fill="none" stroke="#28796d" stroke-width="2.5" marker-end="url(#arrow)"/>
+    <rect x="20" y="265" width="220" height="174" rx="12" fill="#ffffff" stroke="#537980" stroke-width="2"/>
+    <text x="130" y="300" font-size="26" font-weight="700">sclaude</text>
+    <text x="130" y="335" font-size="23">Claude Code</text>
+    <text x="130" y="373" font-size="19">Claude's configured</text>
+    <text x="130" y="399" font-size="19">model provider</text>
+    <rect x="270" y="265" width="220" height="174" rx="12" fill="#ffffff" stroke="#537980" stroke-width="2"/>
+    <text x="380" y="300" font-size="26" font-weight="700">scodex</text>
+    <text x="380" y="335" font-size="23">Codex CLI</text>
+    <text x="380" y="373" font-size="19">Codex's configured</text>
+    <text x="380" y="399" font-size="19">model provider</text>
+    <rect x="520" y="265" width="220" height="174" rx="12" fill="#fff0d8" stroke="#b17b3c" stroke-width="2"/>
+    <text x="630" y="298" font-size="26" font-weight="700">sclaudex</text>
+    <text x="630" y="331" font-size="23" font-weight="600">Claude Code</text>
+    <text x="630" y="367" font-size="20">via CLIProxyAPI</text>
+    <text x="630" y="395" font-size="22" font-weight="600">OpenAI models</text>
+    <text x="630" y="423" font-size="17">managed route</text>
+  </g>
+</svg>
