@@ -2,7 +2,33 @@
 
 Updated: 2026-09-07
 
-## Current publication checkpoint — repaired source passed the complete matrix
+## Publication — pushed; hosted verification passed
+
+The reviewed repair `23265c3` and frozen verification checkpoint `9e2370f` were
+pushed normally to `ctrl-alt-raccoon/shellmates` main. Hosted
+[CI run 34100463948](https://github.com/ctrl-alt-raccoon/shellmates/actions/runs/34100463948)
+completed successfully for exact commit
+`9e2370ff03338c966d6d5b492f20139916c1b37d`: `test (ubuntu-latest)`,
+`test (macos-latest)` and `cross-build` all passed. The publication includes the
+supported project-local harness, README, installation instructions and architecture
+documentation. This subsequent publication record changes only STATUS.md; the
+reviewed and frozen-tested source/configuration remains unchanged.
+
+The first HTTPS push was rejected because the existing OAuth login lacks the
+`workflow` scope; no remote refs changed in that attempt. Existing SSH
+authentication identified the same authorized `ctrl-alt-raccoon` account. Using
+that supported transport succeeded without adding keys, changing known hosts or
+expanding OAuth scopes. Repository-local `origin` fetches over HTTPS and pushes
+over SSH to the same repository; the local `prepush-hardening` branch tracks
+`origin/main`. No force push or history replacement was used.
+
+The separate `HEAD^..HEAD` gitleaks scan of the status-only checkpoint found no
+leaks (one commit, approximately 9.17 KB), completing the history scan recorded
+below. The private untracked audit was never staged or pushed. No tag, release,
+deployment, global harness installation or global agent configuration change was
+performed. Remaining real-target validation is listed near the end of this file.
+
+## Frozen verification checkpoint — repaired source passed the complete matrix
 
 The shutdown repair and regression tests are committed at `23265c3`. One fresh
 complete matrix passed against that frozen Git export, after the single independent
@@ -947,13 +973,14 @@ or real-model review was repeated.
    interface is implemented, documented in docs/HARNESS.md and verified through
    both native CLIs. The legacy trial helper is not the deployment interface.
    Private preferences remain explicit project-local input, never public defaults.
-3. Complete the already-authorized non-forced main push after this verification
-   checkpoint, then observe hosted CI. No tag, release or deployment is authorized.
+3. Publication and hosted CI are complete for the reviewed implementation, as
+   recorded above. No further repair gate is pending; any tag, release or
+   deployment remains separately authorized work.
 
 ## Key decisions and constraints
 
 - `sclaude` routes to ordinary Claude Code/Anthropic; managed `sclaudex` keeps Claude Code as the harness and routes through CLIProxyAPI at `http://127.0.0.1:8317`.
-- `scodex` runs native Codex, not Claude over the proxy. The complete local Mac/Linux matrix, release cross-builds, and isolated Linux SSH reconnect regression passed from `23265c3`. Actual deployment and the real-vendor pilot remain separately scoped; hosted CI follows the authorized push.
+- `scodex` runs native Codex, not Claude over the proxy. The complete local Mac/Linux matrix, release cross-builds, and isolated Linux SSH reconnect regression passed from `23265c3`; hosted CI passed at `9e2370f`. Actual deployment and the real-vendor pilot remain separately scoped.
 - An existing external `claudex` remains opaque and is referenced only by a stable absolute path.
 - Prompts/backend arguments exist only in private one-use launch files and are never persisted in session records.
 - Automated verification uses temporary HOME/XDG roots and explicit localhost fixtures; it must not touch live OAuth, proxy, service, shell-profile, or credential state.
