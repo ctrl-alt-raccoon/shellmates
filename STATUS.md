@@ -2,6 +2,110 @@
 
 Updated: 2026-09-07
 
+## Current publication checkpoint — repaired source passed the complete matrix
+
+The shutdown repair and regression tests are committed at `23265c3`. One fresh
+complete matrix passed against that frozen Git export, after the single independent
+Claude review recorded below. No source/configuration changed during the matrix;
+only this status checkpoint changed afterward. This supersedes the stopped gates
+below, which remain historical evidence rather than current blockers.
+
+Task directory: `/private/tmp/shellmates-stop-fix-20260907.lXaLn0`; command output
+is under `logs/`. Frozen archive SHA-256:
+`e3a0e2aa56418b77455041bf8821bbe50347b7a951fe54715e2953c2e6b25b05`.
+A fresh Git archive reproduced that digest, and all 130 exported tracked
+files/links matched the archive after verification. The temporary release assets
+are under `frozen/dist/v0.0.0-check.23265c3/`, not published release assets.
+
+Every gate below completed with observed command status 0 and cleanup status 0.
+Each Mac command used fresh private HOME/XDG/module/build/Screen roots. Linux used
+read-only, network-disabled disposable containers and fresh internal roots. All
+test-owned roots, containers and managed Screen sessions were cleaned.
+
+1. `sh static.sh`: Go formatting, `go mod verify`, POSIX syntax and ShellCheck;
+   both workflow YAML files and project JSON; 50 local documentation links, 32
+   shell examples and architecture JSON with zero errors; generated instruction
+   freshness and both shared skills' metadata. Repository whitespace passed.
+2. macOS `go test ./...`, `go test -race ./...`, `go vet ./...`: all passed as
+   separately invoked and checked gates (`mac-test`, `mac-race`, `mac-vet`).
+3. macOS `/usr/bin/python3 -B -m unittest discover -s scripts/tests -v`: actual
+   Python 3.9.6, 36 passes and four intended native opt-in skips, 5.002s. The
+   legacy helper emitted its known Git temporary-directory fallback warnings;
+   those cases passed.
+4. macOS `HARNESS_NATIVE_SMOKE=1 python3 -B -m unittest discover -s scripts/tests
+   -p test_harness_native.py -v`: four passes, 5.618s. Both installed providers
+   discovered nested project context and used bounded review transports with no
+   reviewer I/O tools. These are synthetic localhost responses, not real-model
+   reasoning or guarantees of future obedience.
+5. Linux `go test ./...`, `go test -race ./...`, `go vet ./...`: all passed as
+   separately invoked and checked gates (`linux-test`, `linux-race`, `linux-vet`).
+6. Linux `python3 -B -m unittest discover -s scripts/tests -v`: Python 3.11.2,
+   36 passes and four intended native opt-in skips, 2.626s.
+7. `CGO_ENABLED=0 GOOS=... GOARCH=... govulncheck ./...` for each of darwin/arm64,
+   darwin/amd64, linux/arm64 and linux/amd64: no vulnerabilities found in all four.
+8. `sh release-check.sh`, invoking `sh scripts/build-release.sh
+   v0.0.0-check.23265c3`: all four builds passed; exact six-asset set, all five
+   SHA-256 entries and Mach-O/ELF target architectures verified.
+9. `SCLAUDE_RELEASE_INTEGRATION=1 go test -count=1 ./internal/setup`: macOS
+   14.960s and Linux 1.413s, both passed. Coverage includes installation, update,
+   rollback, uninstall/purge, ownership/journal recovery and candidate migration.
+10. `SCLAUDE_SCREEN_INTEGRATION=1 go test -count=1 -run
+    '^(TestRealScreenLifecycle|TestNativeCodexScreenLifecycle)$'
+    ./internal/screen ./internal/app`: macOS 0.568s / 2.847s and Linux 0.107s /
+    0.808s, all passed. This includes the previously failing shutdown gate.
+11. Offline Linux `SCLAUDE_SSH_INTEGRATION=1 go test -race -count=1 -v -run
+    '^TestLinuxSSHReconnect$' ./internal/app`: passed, 11.289s. Unprivileged setup,
+    detached creation, two abrupt SSH disconnects, same-backend reattach/input,
+    acknowledged stop and prune succeeded. Container root was used only for sshd
+    privilege separation; the fixture backend ran as UID 1000. No host ports,
+    existing SSH keys or real SSH target were used.
+12. `go build -o <task>/artifacts/fake-backend ./testdata/fake-backend`, followed
+    by `python3 -B <task>/runtime-check.py` in its own root: checksum-verified
+    release through real Screen to the fake backend passed PID/launch/stop/socket
+    assertions. Direct non-TTY sclaude/sclaudex returned exact empty streams and
+    exit 7 without new session state; all six doctor checks passed with no socket
+    left behind (`fake-build`, `release-runtime`).
+13. `python3 -B <task>/native-screen.py`: the built release's embedded harness
+    installed and checked correctly; real Screen delivered shared/project context
+    and both skills to Claude 2.1.263 and Codex 0.153.4 through synthetic localhost
+    provider fixtures. Both sessions reached terminal state and were cleaned
+    (`release-native-screen`).
+14. `go test -count=1 -v -run
+    '^(TestProjectCodexPluginDeclaration|TestProjectAgentGuidance|TestManagedProxyCommand|TestCommandVerify.*|TestVerifyProxyModelsRequiresManagedModels|TestFetchProxyModelsRejectsOversizedOrTrailingJSON|TestVerifyProxyInferenceValidatesResponse)$'
+    ./internal/backend ./internal/app ./internal/setup`: all passed, 0.476s /
+    0.474s / 0.505s. Static plugin pin/settings contract, backend argument boundary,
+    authenticated localhost models/messages, malformed/oversized response guards
+    and secret-body non-disclosure were covered. No plugin code was installed,
+    loaded or executed.
+15. `sh scripts/render-architecture.sh <pinned-archify-checkout>
+    <task>/architecture.html`: all nine validation checks and showcase composition
+    passed, zero errors/warnings. Existing inspected Archify revision
+    `c6519401f7b91b9d43011657880893b0a8955548`; no download or installation. HTML
+    SHA-256 `43956e5dcca8be600842a3931a340eac1317d5179597d1065474d95376d40beb`.
+    Browser visual inspection remains unperformed.
+
+Preparation anomalies, not repeated matrix gates: an initial Git check used the
+export directory (which intentionally has no `.git`) and exited 129 before the
+static wrapper started. It was pointed to the real checkout. Separately, a
+permission-review timeout occurred before the Mac test process launched; the
+tool explicitly allowed one retry. Each actual matrix gate ran once.
+
+Publication hygiene: `git fetch --no-tags
+https://github.com/ctrl-alt-raccoon/shellmates.git main` refreshed main at
+`e29cdeb4c19862d0e4c29d8ee5c27ac3bf26cb7f`; ancestry permits a normal non-forced
+push. `gitleaks git --log-opts=FETCH_HEAD..HEAD --redact --no-banner --no-color
+--timeout 60 --report-format json --report-path <task>/history-secrets.json .`
+scanned 29 commits / approximately 1.34 MB and found no leaks. This is scanner
+evidence, not a universal absence guarantee. The final status-only commit will
+be checked separately before the authorized main push. Hosted CI is not yet
+observed at this checkpoint; no tag, release or deployment is authorized.
+
+Limits: the real target-host/vendor SSH pilot, silent half-open transport and
+Linux Python 3.9 remain unverified. macOS Python 3.9 and Linux Python 3.11 were
+actually exercised. The isolated SSH fixture is not a substitute for those
+remaining pilot cases. No global agent configuration or original harness was
+installed/changed by this repair; the private untracked audit remains excluded.
+
 ## Shutdown race repair — reviewed and focused-tested
 
 The user explicitly requested investigation, implementation, independent review
@@ -60,10 +164,10 @@ contacted a real reviewer. Authentication stayed vendor-owned; no credential fil
 were inspected/copied and no global configuration was intentionally changed.
 
 Task artifacts: `/private/tmp/shellmates-stop-fix-20260907.lXaLn0`. The private
-untracked audit is excluded. The complete frozen matrix for this repair is next;
-the prior matrix does not certify this changed source.
+untracked audit is excluded. The subsequent complete frozen matrix for this
+repair is recorded above; the earlier stopped matrix does not certify this source.
 
-## Latest publication gate — Screen shutdown race, not pushed
+## Previous publication gate — Screen shutdown race, not pushed
 
 The user authorized fixing the verification issue and pushing. The temporary
 runner now exposes the already-installed Claude/Codex executables through a
@@ -836,27 +940,29 @@ or real-model review was repeated.
 ## Remaining tasks
 
 1. Complete the real Linux/SSH backend pilot, including native arguments,
-   reconnect, clean shutdown and a genuinely half-open transport. The new local
-   Mac/Linux matrix for `f670b01` is complete and passed. Do not rerun it merely
-   because external pilot work remains.
-2. The optional shared-harness trial and Shellmates instruction merge are now
-   implemented. Use docs/HARNESS.md for a quick spin; keep general policy/skills
-   in the separately supplied harness and private trial projections unpublished.
-3. Publication and its required checks for the newer tree remain separately
-   authorized. No origin, push, tag, release, deployment or hosted-CI observation.
+   reconnect, clean shutdown and a genuinely half-open transport. The current
+   local Mac/Linux matrix for `23265c3` passed. Do not rerun it merely because
+   external pilot work remains. Linux Python 3.9 is still unverified.
+2. The supported project-local harness install/check/update/remove/recover
+   interface is implemented, documented in docs/HARNESS.md and verified through
+   both native CLIs. The legacy trial helper is not the deployment interface.
+   Private preferences remain explicit project-local input, never public defaults.
+3. Complete the already-authorized non-forced main push after this verification
+   checkpoint, then observe hosted CI. No tag, release or deployment is authorized.
 
 ## Key decisions and constraints
 
 - `sclaude` routes to ordinary Claude Code/Anthropic; managed `sclaudex` keeps Claude Code as the harness and routes through CLIProxyAPI at `http://127.0.0.1:8317`.
-- `scodex` runs native Codex, not Claude over the proxy. The complete local Mac/Linux matrix, release cross-builds, and isolated Linux SSH reconnect regression passed from `2cbc319`. Actual deployment, real-vendor pilot, and hosted CI remain separately scoped.
+- `scodex` runs native Codex, not Claude over the proxy. The complete local Mac/Linux matrix, release cross-builds, and isolated Linux SSH reconnect regression passed from `23265c3`. Actual deployment and the real-vendor pilot remain separately scoped; hosted CI follows the authorized push.
 - An existing external `claudex` remains opaque and is referenced only by a stable absolute path.
 - Prompts/backend arguments exist only in private one-use launch files and are never persisted in session records.
 - Automated verification uses temporary HOME/XDG roots and explicit localhost fixtures; it must not touch live OAuth, proxy, service, shell-profile, or credential state.
 - Never read or modify `~/.codex/`, inspect Claude credential/keychain storage, expose secrets, log users out, or automatically run system-level `sudo`.
 - Existing release assets must never be overwritten in place; fixes require a new release tag.
-- The September 5 Shellmates follow-up authorized the main push and matching
-  branding. The September 6 migration explicitly withholds all outward mutation
-  during this run; a later publication step needs renewed authorization.
+- The later explicit requests to implement, verify, commit and push the supported
+  Shellmates harness supersede the migration's earlier no-push restriction for
+  this repository. Authorization covers the normal main push, not tags, releases
+  or deployment. Other repositories and global profiles remain outside this repair.
 - Create a local commit after each tracked task is completed and update this file at each boundary.
 - After each authorized complete matrix starts, only `STATUS.md` may change before its verification checkpoint commit.
 - Do not run another adversarial review. Remaining ideas belong in the backlog below.
@@ -865,5 +971,6 @@ or real-model review was repeated.
 
 - Add local `actionlint` coverage in a future task if a trusted installation path is selected; do not block this task on installing it.
 - Consider automating GitHub attestation verification in the installer in a future release, with a separately reviewed trust model.
-- Codex project guidance and an opt-in project-scoped harness trial are implemented; do not expand them into automatic vendor-config migration or a new orchestration layer.
+- Project-local harness deployment and Codex guidance are implemented; do not expand them into automatic vendor-config migration or a new orchestration layer.
 - A user-authorized real-vendor pilot on the intended Linux host, plus silent half-open SSH/keepalive behavior, remains distinct from the isolated fake-backend regression.
+- `confirmStopped` uses the start timeout constant as its zero-value fallback. The independent reviewer noted this pre-existing adjacent debt; it is not part of the repaired list/quit race.
