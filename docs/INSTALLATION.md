@@ -53,9 +53,8 @@ Select the backends you actually want:
 
 ```sh
 scodex setup --no-modify-path                 # Codex + Screen only
-sclaude setup --backends codex --no-modify-path
 sclaude setup --backends claude               # Claude + Screen only
-sclaude setup --backends claude,codex         # both native harnesses, no proxy
+sclaude setup --backends claude,codex         # both native agents, no proxy
 sclaude setup --backends claude,claudex,codex  # all three routes
 ```
 
@@ -131,17 +130,54 @@ The minimum language version remains Go 1.23; build and verify releases with the
 ```sh
 git clone https://github.com/ctrl-alt-raccoon/shellmates.git
 cd shellmates
-GOTOOLCHAIN=go1.26.8 go build -o sclaude ./cmd/sclaude
+build_version="v0.0.0-local.g$(git rev-parse --short=12 HEAD)"
+mkdir -p bin
+GOTOOLCHAIN=go1.26.8 go build -trimpath \
+  -ldflags "-X main.version=$build_version" -o bin/sclaude ./cmd/sclaude
+./bin/sclaude _install-release --source "$PWD/bin/sclaude" --version "$build_version"
+export PATH="$HOME/.local/bin:$PATH"
 ```
 
-With GNU Screen and your chosen vendor CLI installed, configure and launch the local build. For native Codex only:
+This calls the same managed installation entry point used by the release
+bootstrap. It installs for the current user, not all users: launchers go in
+`~/.local/bin`, versioned binaries in `~/.local/share/sclaude/releases`, and the
+installation ledger in `~/.local/state/sclaude/install`. The latter two respect
+`XDG_DATA_HOME` and `XDG_STATE_HOME`. No root access or system-directory writes are
+needed. The build output is copied, so moving the checkout does not break the
+installed commands. Unmanaged existing launcher paths are refused, not overwritten.
+
+`build_version` labels a local build from its Git commit; it does not create a Git
+tag or publish a release. Commit local source edits before building a new version.
+An existing version cannot be replaced with different bytes. Repeat the build and
+install steps after pulling a new commit to update; use the same pinned compiler
+and build flags. See [rollback and uninstall](USAGE.md#update-and-uninstall).
+
+With GNU Screen and your chosen vendor CLI installed, configure the installed
+commands and start from your own project directory. For native Codex only:
 
 ```sh
-./sclaude setup --backends codex --no-modify-path
-./sclaude new --backend codex --topic "First session"
+scodex setup --bin-dir "$HOME/.local/bin"
+cd "/path/to/your/project"
+scodex new --topic "First session"
 ```
 
-Use `--backends claude,codex` to enable both native backends, or `--backends claude` for Claude only. Source builds do not install the three launcher links; the release installer creates them. Use `./sclaude` for the local build and select the backend explicitly with `new --backend`.
+`scodex` selects Codex automatically for setup and new sessions; no backend flag
+is needed. For Claude, use
+`sclaude setup --backends claude --bin-dir "$HOME/.local/bin"`, then
+`sclaude new` in your project. To enable both, use
+`--backends claude,codex` in one setup command; setup replaces the previous selection.
+
+The `export PATH=...` step applies to the current terminal. Setup with `--bin-dir`
+adds a managed PATH block to eligible shell startup files for future terminals;
+add `--no-modify-path` to opt out. For custom shell startup arrangements, confirm
+`command -v scodex` in a fresh terminal/SSH login and adjust your own PATH if needed.
+For a custom command directory, pass the same absolute `--bin-dir` to both the
+installation entry point and setup, and put that directory on PATH instead.
+
+Shared manager commands such as harness management still use `sclaude`;
+`scodex help`, `doctor`, `update` and `--version` retain their native Codex meaning. Install
+the project harness separately with `sclaude harness install --project .` from
+your project's Git root. Neither command installation nor setup enrolls projects.
 
 For development, run tests in disposable HOME/XDG/cache roots as described in [CONTRIBUTING.md](../CONTRIBUTING.md). Release and opt-in regression commands, within that isolated verification environment, include:
 

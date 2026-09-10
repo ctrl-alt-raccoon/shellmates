@@ -2,6 +2,44 @@
 
 Updated: 2026-09-10
 
+## Screen-first onboarding and installed commands publication — 2026-09-10
+
+The user authorized publication of only the README and installation documentation
+updates. This copy is based on published main b5c7529 and changes only README.md,
+docs/INSTALLATION.md and this verification record. Other local development commits
+are excluded; application/harness source, tests, configuration, workflows and
+artwork remain unchanged.
+
+README now leads with running AI agents in Screen, with explicit setup, startup,
+detach/reconnect and optional project-harness steps. Native Codex uses scodex.
+Source installation reuses the existing managed installer: all three launchers
+go in ~/.local/bin and the binary is copied into versioned user-local storage.
+The build directory is not needed for everyday use. Installation, per-user setup
+and per-project harness enrollment are separate operations; PATH persistence,
+local build versions, updates and removal are explained in the installation guide.
+
+Focused checks on this publication copy, within a cap of three correction rounds:
+
+- Documentation checker: 54 local links, 39 shell examples, architecture JSON;
+  zero errors. Native project-guidance freshness and whitespace checks passed.
+- A fresh disposable macOS/arm64 build with Go 1.26.8 and the documented version
+  flags passed; module verification passed. Installed all three managed launchers,
+  moved the build directory, and verified commands from another project folder.
+- Codex-only and both-native setup selections passed. A fresh zsh explicitly
+  sourcing the disposable profile found the installed command; repeated setup
+  preserved one PATH block. Fake Codex/Claude received the intended cwd (including
+  spaces) and literal arguments unchanged.
+- Project-local harness preview/install/check/update passed. Both generated native
+  files included the project marker; both shared skills resolved inside the project
+  snapshot. Harness operations did not change manager config or the shell profile.
+- Smoke command and cleanup both returned zero. No real agents, authentication,
+  real-user profiles or Screen sessions were used. This does not test all SSH shell
+  startup arrangements or real-model behavior.
+
+No local full-matrix rerun, new Linux/Python 3.9 pilot, package installation or
+global harness deployment is claimed. Hosted CI for the new publication commit
+is checked separately after the push, not inferred from previous runs.
+
 ## Prerequisite documentation publication — 2026-09-10
 
 README now gives one-line Homebrew and Ubuntu 24.04+/Debian 13+ dependency

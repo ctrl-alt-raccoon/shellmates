@@ -4,236 +4,201 @@
 
 # Shellmates
 
-**Keep your coding agents running. Bring the same working habits to every project.**
+**Run your AI agents in Screen. Leave. Come back to the same session.**
 
-Shellmates gives Claude Code and Codex persistent, topic-named terminal sessions.
-Start work locally or over SSH, detach, and reconnect to the same running agent.
-Its optional project harness gives both agents shared instructions, handovers and
-explicit cross-review, without installing global agent configuration.
+Shellmates makes Claude Code and Codex easier to use in GNU Screen, locally or
+over SSH. It handles starting, finding, reconnecting to and stopping your agent
+sessions, so you don't have to remember Screen commands.
 
-Use Claude Code, native Codex, or **Claude Code powered by OpenAI models**.
-Shellmates keeps the session running and the project instructions consistent;
-you choose the coding agent and model route.
+- Give sessions useful names, such as "API work" or "Fix the tests".
+- Keep several agents running and switch between their sessions.
+- Detach or disconnect from SSH, then return to the same running agent later.
 
-[Get started](#build-from-source) · [Project harness](docs/HARNESS.md) ·
-[Usage](docs/USAGE.md) · [Architecture](docs/ARCHITECTURE.md) ·
-[Installation](docs/INSTALLATION.md) · [Security](SECURITY.md)
+Your agent keeps its own settings, permissions and conversations. Shellmates
+manages the terminal session around it.
 
-## What you get
+[Get started](#build-from-source) · [Add the project harness](#5-add-the-project-harness-optional) ·
+[Detach and reconnect](#detach-and-reconnect)
 
-- **Leave and come back to the same work.** Detach before closing your terminal,
-  or reconnect after an ordinary SSH disconnect. Your agent stays on the host;
-  a named session gets you back to it without starting another conversation.
-- **Choose the workflow as well as the model.** Keep native Claude or Codex, or
-  use Claude Code's workflow with OpenAI models through the optional proxy route.
-- **Stop re-explaining each repository.** Install shared working agreements,
-  `project.md`, handover and cross-review once per project. Claude and Codex get
-  the same maintained sources; you do not need matching global configurations.
-- **Get a second opinion deliberately.** Ask Claude to review Codex's work, or
-  the reverse, through one explicit permission-bounded review. No agent fleet.
-- **Keep setup portable and reversible.** The harness travels with the project,
-  has install/check/update/remove commands, and needs no separate harness checkout.
-  Shellmates supports macOS/Linux on amd64/arm64.
+## Choose your agent
 
-No background agent fleet, recursive reviewer loop, Beads requirement, or mandatory proxy.
+| Command | Runs |
+|---|---|
+| `scodex` | Native Codex CLI |
+| `sclaude` | Claude Code |
+| `sclaudex` | Claude Code with OpenAI models through the optional CLIProxyAPI route |
 
-## Pick your launcher
-
-| Command | Agent workflow and tools | Model route | Choose it when… |
-|---|---|---|---|
-| `sclaude` | Claude Code | Claude's configured provider | You want the native Claude experience. |
-| `scodex` | Codex CLI | Codex's configured provider | You want native Codex, including its own settings and permissions. |
-| `sclaudex` (managed) | **Claude Code** | **CLIProxyAPI → OpenAI/Codex models** | You want OpenAI models inside the Claude Code workflow you already use. |
-
-**`sclaudex` is Claude Code as the agent harness, with OpenAI models behind it.
-It is not the Codex CLI.** This lets you keep supported Claude commands, tools,
-skills and project conventions while changing the model route. It does not give
-you Codex CLI's native features, guarantee complete feature parity, or promise
-lower cost or better results. It adds a proxy and its authentication/setup needs.
-
-If setup adopts an existing external `claudex`, Shellmates runs that executable
-unchanged; the managed-route description does not define its behavior.
-An existing Claude gateway sign-in can also override proxy routing. Read the
-[proxy guide and routing check](docs/PROXY.md#sclaudex-direction) before using it.
-
-The **Shellmates project harness** is a different, optional layer: shared files and
-skills for your repositories. It works with native Claude, native Codex and managed
-`sclaudex`, including Claude or Codex started directly. It does not replace either
-vendor's agent runtime.
+**Use `scodex` for Codex.** It does not need Claude or a proxy.
+`sclaudex` is a different route, not the Codex CLI; see [proxy setup](docs/PROXY.md).
 
 ## Build from source
 
-There are no published release assets yet. For now, build from this repository.
+Shellmates runs on macOS and Linux, on amd64 or arm64. Install it on the machine
+where your agents will run—on the server if you will connect over SSH.
+There are no published release binaries yet, so build from source for now.
 
 ### 1. Install prerequisites
 
-Run these commands on the machine that will host your agents—on the Linux server
-if you will connect over SSH. You need **Go and Git to build**, **GNU Screen for
-persistent sessions**, and **Python 3.9+ for the optional project harness**. The
-commands also include `curl` for downloading installers; no Python packages are needed.
+You need Go and Git to build, and GNU Screen to run sessions. Python 3.9+ is
+needed only for the optional project harness. These commands include all of them,
+plus `curl` for downloading installers.
 
-**macOS — with [Homebrew](https://docs.brew.sh/Installation) installed:**
+**macOS**, with [Homebrew](https://docs.brew.sh/Installation) installed:
 
 ```sh
 brew install go git screen python curl
 ```
 
-If `brew` is not found, install Homebrew first and follow its printed `PATH`
-instructions before running that command.
-
 **Linux — [Ubuntu 24.04+](https://packages.ubuntu.com/noble/golang-go) or
-[Debian 13+](https://packages.debian.org/trixie/golang-go), with administrator access:**
+[Debian 13+](https://packages.debian.org/trixie/golang-go):**
 
 ```sh
 sudo apt-get update && sudo apt-get install -y golang-go git screen python3 curl ca-certificates
 ```
 
-These distributions provide a Go command new enough to download the pinned
-toolchain. On older Ubuntu/Debian releases or other distributions, install the
-equivalent packages and use the [official Go installer](https://go.dev/doc/install)
-if your packaged Go is older than **1.21**. That is the minimum for
-[toolchain switching](https://go.dev/doc/toolchain), not Shellmates' build version:
-the build command below selects **Go 1.26.8**, matching CI, and downloads it if
-needed. Allow internet access for the first build.
-
-Check that the commands are on your `PATH`:
-
-```sh
-go version && git --version && screen --version && python3 --version && curl --version
-```
+The build below uses Go 1.26.8, matching CI. Go 1.21+ can
+[download that toolchain automatically](https://go.dev/doc/toolchain), so allow
+internet access for the first build. On older Linux releases, use the
+[official Go installer](https://go.dev/doc/install) if the packaged Go is too old.
 
 ### 2. Install and sign in to your coding agent
 
-The package commands above **do not install Claude Code or Codex**. Install at
-least one using the official [Claude Code setup guide](https://code.claude.com/docs/en/setup)
-or [Codex CLI setup guide](https://learn.chatgpt.com/docs/codex/cli), then run
-`claude` or `codex` directly and complete its sign-in. If your chosen CLI already
-works, skip this step. You do not need both agents.
+Install [Codex CLI](https://learn.chatgpt.com/docs/codex/cli),
+[Claude Code](https://code.claude.com/docs/en/setup), or both. Run `codex` or
+`claude` directly and finish signing in before continuing. These agents are
+separate installs, not included in the package commands above.
 
-The vendors' native installers do not require Node.js/npm. **CLIProxyAPI is
-optional**, needed only for the managed `sclaudex` route; the native quickstart
-below does not use it. See [proxy setup](docs/PROXY.md) if you want that route.
-
-### 3. Build and start a session
-
-This example uses native Codex:
+### 3. Build and install
 
 ```sh
 git clone https://github.com/ctrl-alt-raccoon/shellmates.git
 cd shellmates
-GOTOOLCHAIN=go1.26.8 go build -o sclaude ./cmd/sclaude
-
-# Enable native Codex; no proxy and no shell-profile edits.
-./sclaude setup --backends codex --no-modify-path
-
-# Create a named session in your current working directory.
-./sclaude new --backend codex --topic "First session"
+build_version="v0.0.0-local.g$(git rev-parse --short=12 HEAD)"
+mkdir -p bin
+GOTOOLCHAIN=go1.26.8 go build -trimpath \
+  -ldflags "-X main.version=$build_version" -o bin/sclaude ./cmd/sclaude
+./bin/sclaude _install-release --source "$PWD/bin/sclaude" --version "$build_version"
+export PATH="$HOME/.local/bin:$PATH"
 ```
 
-For Claude instead, use `--backends claude` during setup and `--backend claude`
-when creating the session. To enable both installed agents, set up with
-`--backends claude,codex` and choose either backend when creating a session.
-Setup can install a missing Screen package on macOS; Linux privileged package
-installation requires explicit consent. See [setup boundaries](docs/INSTALLATION.md#what-setup-checks)
-before provisioning a shared machine. Harness installation itself installs no packages.
+This uses the existing installer to put **all three commands in `~/.local/bin`**
+for your user—no `sudo`. The installed binary is copied out of the checkout;
+you can run the commands from **any working folder**. `bin/` is only build output.
+The last line enables the commands in this terminal; setup below handles future
+terminals. [Installation, updates and removal](docs/INSTALLATION.md#build-from-source)
 
-Detach with **Ctrl-a, then d**. After reconnecting over SSH:
+### 4. Set up Shellmates
+
+Choose **one** setup command:
+
+**Codex only:**
 
 ```sh
-/path/to/sclaude list
-/path/to/sclaude attach SESSION_ID
-# When the work is finished:
-/path/to/sclaude stop SESSION_ID
+scodex setup --bin-dir "$HOME/.local/bin"
 ```
 
-Shellmates must run on the machine that hosts the agent process. Reconnecting means
-SSH into that same machine and attach there; it does not move a live process between hosts.
-
-## Install the harness in a project
-
-From the repository you want to use, with your built or installed executable:
+**Claude only:**
 
 ```sh
-/path/to/sclaude harness install --project . --dry-run
-/path/to/sclaude harness install --project .
-/path/to/sclaude harness check --project .
+sclaude setup --backends claude --bin-dir "$HOME/.local/bin"
 ```
 
-That project now has shared working agreements, a `project.md` instruction source,
-native Claude/Codex entries and both shared skills. Fill in the project's real
-commands and constraints, then regenerate:
+**Both native agents:**
 
 ```sh
-/path/to/sclaude harness update --project .
+scodex setup --backends claude,codex --bin-dir "$HOME/.local/bin"
 ```
 
-Start a fresh Claude or Codex session in that project, through Shellmates or directly.
-No Screen setup or vendor login is needed merely to install the harness.
+Setup checks for Screen and the selected agent executables, then saves their paths
+and your selection in Shellmates' own per-user configuration on this machine.
+If Screen is missing, setup can install it through Homebrew on macOS; Linux
+package installation requires explicit consent.
 
-The default installation is **project-owned and shareable through Git**. Review
-its files before committing them. For a private, checkout-only installation:
+`--bin-dir` also adds that command directory to supported shell startup files.
+Check `command -v scodex` (or `sclaude`) in a new terminal or SSH login.
+Add `--no-modify-path` if you prefer to manage `PATH` yourself. These native setups
+do **not** sign you in, start an agent, configure a proxy or install the project
+harness. Run setup once per machine/user; a new selection replaces the previous
+one. [Setup details and preview mode](docs/INSTALLATION.md#what-setup-checks)
+
+### 5. Add the project harness (optional)
+
+This gives Claude and Codex shared project instructions plus `handover` and
+`cross-review` skills. Skip it if you only want persistent Screen sessions.
+
+Go to your project's Git repository, then preview, install and check:
 
 ```sh
-/path/to/sclaude harness install --project . --local
-# Optionally import your own personal rules, explicitly:
-/path/to/sclaude harness install --project . --local --preferences /private/path/house-rules.md
+cd "/path/to/your/project"
+sclaude harness install --project . --dry-run
+sclaude harness install --project .
+sclaude harness check --project .
 ```
 
-Local mode uses repository-local Git exclusions, never global ignore settings.
-It refuses already-tracked native/harness destinations: ignoring a tracked file
-does not make it private. Personal preferences are never imported automatically.
+The first command previews; the second installs; the third checks the result.
+Harness management uses `sclaude harness` **for both agents**; it does not launch Claude.
+It adds project-local instructions and skills, not global agent configuration.
 
-[Installation details, updates, safe removal and migration](docs/HARNESS.md)
+Fill in `project.md` with your project's commands and rules, then regenerate the
+Claude/Codex instructions:
 
-## Architecture
+```sh
+sclaude harness update --project .
+```
 
-One persistent terminal layer, three explicit ways to run your coding agent:
+Review the generated files before committing them. Start a **new** agent session
+in that project to pick them up. See the [harness guide](docs/HARNESS.md) for
+existing-instruction handling, private installs, updates and removal.
 
-![Shellmates keeps a terminal session alive around native Claude, native Codex, or Claude Code using OpenAI models through CLIProxyAPI.](docs/architecture/overview.svg)
+### 6. Start working
 
-This is the managed interactive-session path. Noninteractive commands run directly,
-without Screen. The native agents own their tools, permissions and conversations.
-The optional project harness supplies instructions and skills; it is **not a
-security sandbox**, and existing global instructions can still apply.
+From your project folder, choose your configured agent:
 
-See [the architecture guide](docs/ARCHITECTURE.md) for the small instruction-flow
-diagram, shutdown steps and source paths. The detailed Archify map is optional
-developer reference, not something you need to open or zoom into to get started.
+```sh
+cd "/path/to/your/project"
+```
 
-## Command names and arguments
+**Codex:**
 
-The project is called **Shellmates**, but these command names remain compatibility
-contracts. There is no separate `shellmates` executable. Source builds produce
-`sclaude`; the release installer creates all three launcher links. Neither replaces
-`claude`, `codex`, or an existing `claudex`.
+```sh
+scodex new --topic "My project"
+```
 
-Codex `-p` means **profile**; Claude `-p` means **print**. Put vendor arguments after
-`new`'s `--`, and they are forwarded unchanged. Use `sclaude harness` for harness
-management; `scodex update` still belongs to Codex. Codex's own status line remains
-untouched. [Argument and dispatch details](docs/INSTALLATION.md#native-codex-arguments-and-command-names)
+**Claude:**
 
-## Reliability and limits
+```sh
+sclaude new --topic "My project"
+```
 
-Shellmates stores session metadata, not conversations. Topics and working-directory
-paths are persistent metadata: do not put secrets in them. Launch arguments use
-private, one-use files and are not retained in session records.
+No `--backend codex` is needed: `scodex` already selects Codex.
 
-A stop is complete only after the owning runner acknowledges backend exit and
-Screen disappearance is confirmed. An unconfirmed stop remains pending. Custom
-wrappers must forward signals and wait, or `exec` their backend. A disconnected
-terminal is not a stopped process. [Lifecycle and privacy](docs/USAGE.md#state-and-privacy)
+## Detach and reconnect
 
-Tests cover disposable state, install/update/removal, native argument boundaries,
-Screen lifecycle and localhost CLI fixtures. Synthetic-provider tests prove
-configuration delivery and tool exposure—not guaranteed model obedience. See
-[STATUS.md](STATUS.md) for exact results and the remaining real Linux/SSH pilot scope.
+Press **Ctrl-a, then d** to detach. Your agent stays running. You can close your
+terminal or disconnect from SSH.
 
-## Contributing and security
+When you return, connect to the **same machine** and run:
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) and [project.md](project.md). Keep changes
-small, preserve native provider boundaries, and test against disposable profiles.
-Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+```sh
+scodex list
+scodex attach SESSION_ID
 
-[MIT license](LICENSE). Independent community software, not affiliated with
-Anthropic, OpenAI, GNU, CLIProxyAPI, or Archify. Account owners are responsible for
-provider terms when choosing third-party routing.
+# When you want to end the session:
+scodex stop SESSION_ID
+```
+
+Use `sclaude` for the same commands with Claude. Screen keeps the process
+alive while the host is running; it does not move sessions between machines or
+keep a process alive through a reboot.
+
+See [the usage guide](docs/USAGE.md) for more session commands and
+[passing native agent arguments](docs/INSTALLATION.md#native-codex-arguments-and-command-names).
+
+## More information
+
+[Installation and troubleshooting](docs/INSTALLATION.md) ·
+[Architecture](docs/ARCHITECTURE.md) · [Verification status and known limits](STATUS.md)
+
+[Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [MIT license](LICENSE)
+
+Independent community software, not affiliated with Anthropic, OpenAI or GNU.
