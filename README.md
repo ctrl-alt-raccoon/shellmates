@@ -64,24 +64,75 @@ vendor's agent runtime.
 ## Build from source
 
 There are no published release assets yet. For now, build from this repository.
-Use the Go **1.26.8** toolchain pinned in CI. Harness commands also require
-**Python 3.9+** and Git; managed sessions require **GNU Screen** and your chosen
-native Claude/Codex CLI. Install and authenticate vendor CLIs separately.
+
+### 1. Install prerequisites
+
+Run these commands on the machine that will host your agents—on the Linux server
+if you will connect over SSH. You need **Go and Git to build**, **GNU Screen for
+persistent sessions**, and **Python 3.9+ for the optional project harness**. The
+commands also include `curl` for downloading installers; no Python packages are needed.
+
+**macOS — with [Homebrew](https://docs.brew.sh/Installation) installed:**
+
+```sh
+brew install go git screen python curl
+```
+
+If `brew` is not found, install Homebrew first and follow its printed `PATH`
+instructions before running that command.
+
+**Linux — [Ubuntu 24.04+](https://packages.ubuntu.com/noble/golang-go) or
+[Debian 13+](https://packages.debian.org/trixie/golang-go), with administrator access:**
+
+```sh
+sudo apt-get update && sudo apt-get install -y golang-go git screen python3 curl ca-certificates
+```
+
+These distributions provide a Go command new enough to download the pinned
+toolchain. On older Ubuntu/Debian releases or other distributions, install the
+equivalent packages and use the [official Go installer](https://go.dev/doc/install)
+if your packaged Go is older than **1.21**. That is the minimum for
+[toolchain switching](https://go.dev/doc/toolchain), not Shellmates' build version:
+the build command below selects **Go 1.26.8**, matching CI, and downloads it if
+needed. Allow internet access for the first build.
+
+Check that the commands are on your `PATH`:
+
+```sh
+go version && git --version && screen --version && python3 --version && curl --version
+```
+
+### 2. Install and sign in to your coding agent
+
+The package commands above **do not install Claude Code or Codex**. Install at
+least one using the official [Claude Code setup guide](https://code.claude.com/docs/en/setup)
+or [Codex CLI setup guide](https://learn.chatgpt.com/docs/codex/cli), then run
+`claude` or `codex` directly and complete its sign-in. If your chosen CLI already
+works, skip this step. You do not need both agents.
+
+The vendors' native installers do not require Node.js/npm. **CLIProxyAPI is
+optional**, needed only for the managed `sclaudex` route; the native quickstart
+below does not use it. See [proxy setup](docs/PROXY.md) if you want that route.
+
+### 3. Build and start a session
+
+This example uses native Codex:
 
 ```sh
 git clone https://github.com/ctrl-alt-raccoon/shellmates.git
 cd shellmates
-export GOTOOLCHAIN=go1.26.8
-go build -o sclaude ./cmd/sclaude
+GOTOOLCHAIN=go1.26.8 go build -o sclaude ./cmd/sclaude
 
-# Enable both native backends; no proxy and no shell-profile edits.
-./sclaude setup --backends claude,codex --no-modify-path
+# Enable native Codex; no proxy and no shell-profile edits.
+./sclaude setup --backends codex --no-modify-path
 
 # Create a named session in your current working directory.
 ./sclaude new --backend codex --topic "First session"
 ```
 
-Choose `--backends claude` or `--backends codex` if you only use one.
+For Claude instead, use `--backends claude` during setup and `--backend claude`
+when creating the session. To enable both installed agents, set up with
+`--backends claude,codex` and choose either backend when creating a session.
 Setup can install a missing Screen package on macOS; Linux privileged package
 installation requires explicit consent. See [setup boundaries](docs/INSTALLATION.md#what-setup-checks)
 before provisioning a shared machine. Harness installation itself installs no packages.

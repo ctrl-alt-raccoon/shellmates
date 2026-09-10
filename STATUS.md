@@ -1,6 +1,38 @@
 # Status checkpoint
 
-Updated: 2026-09-07
+Updated: 2026-09-10
+
+## Prerequisite documentation publication — 2026-09-10
+
+README now gives one-line Homebrew and Ubuntu 24.04+/Debian 13+ dependency
+commands before cloning/building. It distinguishes build tools, Screen, optional
+Python harness support and separately installed/authenticated native agents.
+Go 1.21+ bootstraps the CI-pinned Go 1.26.8 toolchain; older distribution packages
+link to the official Go installer. The native Codex example no longer requires
+Claude to be installed, and explains the Claude-only/both-backend alternatives.
+INSTALLATION.md links to the prerequisites and uses the same command-scoped pin.
+
+The user authorized publication of this documentation update. The publication
+copy changes only README.md, docs/INSTALLATION.md and this status record from
+published commit `b33acdb`; application/harness source, tests, configuration,
+workflows and artwork remain byte-for-byte unchanged. Other local development
+commits are not included.
+
+Focused checks on the publication copy, with a cap of three correction rounds:
+
+- `python3 -I -B scripts/check-docs.py`: passed; 57 local links, 35 shell examples,
+  architecture JSON, zero errors.
+- `python3 -I -B scripts/sync-project-guidance.py --check`: passed; no native
+  instruction regeneration needed.
+- `git diff --check`: passed. Diff scope confirmed documentation only; README
+  matches the requested local documentation checkpoint exactly.
+- Package names, distribution Go versions, toolchain switching and vendor setup
+  links were checked against official documentation during the documentation task.
+
+No package installation, native login, global-profile edit, product-source change
+or local full-matrix rerun. The one-liners were syntax-checked, not executed as
+fresh-machine installs. Hosted CI for this new commit is checked separately
+after the push; earlier results are not presented as a new run.
 
 ## Documentation/artwork verification passed; full model review still incomplete
 

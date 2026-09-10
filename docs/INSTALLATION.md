@@ -120,13 +120,18 @@ sclaude setup --headless \
 
 ## Build from source
 
+Install the prerequisites first: the README has
+[one-line macOS and Ubuntu/Debian package commands](../README.md#1-install-prerequisites)
+and [native agent setup links](../README.md#2-install-and-sign-in-to-your-coding-agent).
+Go is a build-time dependency, not a requirement for running a prebuilt Shellmates
+binary. Python 3.9+ is needed only for the optional harness commands.
+
 The minimum language version remains Go 1.23; build and verify releases with the patched Go 1.26.8 toolchain pinned in CI. Keeping the language directive separate prevents the release workflow from selecting an obsolete compiler. [Go release history](https://go.dev/doc/devel/release)
 
 ```sh
 git clone https://github.com/ctrl-alt-raccoon/shellmates.git
 cd shellmates
-export GOTOOLCHAIN=go1.26.8
-go build ./cmd/sclaude
+GOTOOLCHAIN=go1.26.8 go build -o sclaude ./cmd/sclaude
 ```
 
 With GNU Screen and your chosen vendor CLI installed, configure and launch the local build. For native Codex only:
